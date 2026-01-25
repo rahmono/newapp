@@ -61,6 +61,14 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'dist')));
 
+// Serve index.html for client-side routing (admin, debtor views)
+app.get('/debtor/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+app.get('/admin/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -480,8 +488,15 @@ app.post('/api/admin/login', (req, res) => {
 
 app.get('/api/admin/verifications', isAdmin, async (req, res) => {
     try {
+        // UPDATED QUERY TO INCLUDE PHONE AND STATS
         const [rows] = await pool.query(`
-            SELECT vr.*, u.first_name as owner_name, u.username as owner_username
+            SELECT 
+                vr.*, 
+                u.first_name as owner_name, 
+                u.username as owner_username,
+                u.phone_number as owner_phone,
+                (SELECT COUNT(*) FROM debtors d WHERE d.store_id = vr.store_id) as debtors_count,
+                (SELECT COUNT(*) FROM transactions t JOIN debtors d2 ON t.debtor_id = d2.id WHERE d2.store_id = vr.store_id) as transaction_count
             FROM verification_requests vr
             LEFT JOIN users u ON vr.user_telegram_id = u.telegram_id
             ORDER BY vr.created_at DESC
@@ -494,9 +509,9 @@ app.get('/api/admin/verifications', isAdmin, async (req, res) => {
 
 app.put('/api/admin/verifications/:id/status', isAdmin, async (req, res) => {
     const { id } = req.params;
-    const { status } = req.body; // APPROVED or REJECTED
+    const { status } = req.body; // APPROVED, REJECTED, PENDING
 
-    if (!['APPROVED', 'REJECTED'].includes(status)) {
+    if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
     }
 
@@ -507,12 +522,18 @@ app.put('/api/admin/verifications/:id/status', isAdmin, async (req, res) => {
         // 1. Update Request Status
         await connection.query('UPDATE verification_requests SET status = ? WHERE id = ?', [status, id]);
 
-        // 2. If Approved, Update Store Verification Status & Name
-        if (status === 'APPROVED') {
-            const [rows] = await connection.query('SELECT store_id, custom_store_name FROM verification_requests WHERE id = ?', [id]);
-            if (rows.length > 0) {
-                const { store_id, custom_store_name } = rows[0];
+        // 2. Handle Store Verification Status based on Request Status
+        const [rows] = await connection.query('SELECT store_id, custom_store_name FROM verification_requests WHERE id = ?', [id]);
+        
+        if (rows.length > 0) {
+            const { store_id, custom_store_name } = rows[0];
+            
+            if (status === 'APPROVED') {
+                // If Approved, set store as verified and update name
                 await connection.query('UPDATE stores SET is_verified = TRUE, name = ? WHERE id = ?', [custom_store_name, store_id]);
+            } else {
+                // If Rejected or Pending, ensure store is NOT verified
+                await connection.query('UPDATE stores SET is_verified = FALSE WHERE id = ?', [store_id]);
             }
         }
 
@@ -982,6 +1003,56 @@ app.get('/api/debtors', async (req, res) => {
   }
 });
 
+// PUBLIC: Get Debtor by ID (No Auth Required)
+app.get('/api/public/debtors/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // 1. Get Debtor Info + Store Name
+        const [debtorRows] = await pool.query(`
+            SELECT d.*, s.name as store_name 
+            FROM debtors d
+            LEFT JOIN stores s ON d.store_id = s.id
+            WHERE d.id = ?
+        `, [id]);
+
+        if (debtorRows.length === 0) {
+            return res.status(404).json({ error: 'Debtor not found' });
+        }
+
+        const debtor = debtorRows[0];
+
+        // 2. Get Transactions
+        const [transactions] = await pool.query(`
+            SELECT id, amount, type, description, date 
+            FROM transactions 
+            WHERE debtor_id = ? 
+            ORDER BY date DESC
+        `, [id]);
+
+        // 3. Format Response
+        const result = {
+            id: debtor.id,
+            name: debtor.name,
+            balance: parseFloat(debtor.balance),
+            storeName: debtor.store_name || 'Мағозаи беном',
+            transactions: transactions.map(t => ({
+                id: t.id,
+                amount: parseFloat(t.amount),
+                type: t.type,
+                description: t.description,
+                date: t.date
+            }))
+        };
+
+        res.json(result);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.post('/api/debtors', async (req, res) => {
   const { id, name, phone, balance, lastActivity, createdBy } = req.body;
   const telegramId = getTelegramId(req);
@@ -1189,7 +1260,8 @@ app.post('/api/sms/send', async (req, res) => {
         }
 
         // 4. Construct Message
-        const message = `Салом, Шумо аз дукони ${storeName} ${balance} сомонӣ қарздор ҳастед, агар қарзатонро сари вақт омада супоред хушҳол мешавем.`;
+        const link = `https://steppay.fun/debtor/${debtorId}`;
+        const message = `Салом, Шумо аз дукони ${storeName} ${balance} сомонӣ қарздор ҳастед, агар қарзатонро сари вақт омада супоред хушҳол мешавем. Ссылкаи профили қарзи Шумо: ${link}`;
         
         // 5. Format Phone (Ensure 992 prefix, strip +)
         let phone = debtor.phone.replace(/\D/g, ''); // Remove non-digits

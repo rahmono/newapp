@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import AdminApp from './AdminApp';
+import PublicDebtorApp from './PublicDebtorApp';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,10 +12,18 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 
 // Simple Path-based Routing Check
-const isPathAdmin = window.location.pathname.startsWith('/admin');
+const path = window.location.pathname;
+const isPathAdmin = path.startsWith('/admin');
+const isPathDebtor = path.startsWith('/debtor/');
 
 root.render(
   <React.StrictMode>
-    {isPathAdmin ? <AdminApp /> : <App />}
+    {isPathAdmin ? (
+        <AdminApp />
+    ) : isPathDebtor ? (
+        <PublicDebtorApp />
+    ) : (
+        <App />
+    )}
   </React.StrictMode>
 );

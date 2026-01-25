@@ -1,4 +1,5 @@
 
+
 export enum TransactionType {
   DEBT = 'DEBT',     // Қарз додам (Merchant gave goods/money)
   PAYMENT = 'PAYMENT' // Пул гирифтам (Merchant received money)
@@ -80,6 +81,9 @@ export interface VerificationRequest {
   // Joins
   owner_name?: string;
   owner_username?: string;
+  owner_phone?: string;
+  debtors_count?: number;
+  transaction_count?: number;
 }
 
 export type ViewState = 'DASHBOARD' | 'DEBTOR_DETAIL' | 'PROFILE' | 'ANALYTICS' | 'SETTINGS' | 'VERIFICATION';

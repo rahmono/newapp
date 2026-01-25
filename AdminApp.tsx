@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, CheckCircle, XCircle, Eye, User, Store, Calendar, LogOut, Users, Search, ChevronLeft, ChevronRight, Menu, ArrowRight, ArrowLeft, History } from 'lucide-react';
+import { Shield, Lock, CheckCircle, XCircle, Eye, User, Store, Calendar, LogOut, Users, Search, ChevronLeft, ChevronRight, Menu, ArrowRight, ArrowLeft, History, Phone, CreditCard, BarChart } from 'lucide-react';
 import { VerificationRequest, AdminUser, Store as StoreType, Debtor } from './types';
 import { formatCurrency, formatDate } from './services/storage'; // Reusing existing helper
 
@@ -14,6 +14,7 @@ const AdminApp: React.FC = () => {
   // Verifications State
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<VerificationRequest | null>(null);
 
   // Users State
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -60,6 +61,7 @@ const AdminApp: React.FC = () => {
     localStorage.removeItem('admin_token');
     setSelectedUser(null);
     setSelectedStore(null);
+    setSelectedRequest(null);
   };
 
   // --- Fetch Logic ---
@@ -76,6 +78,11 @@ const AdminApp: React.FC = () => {
       }
       const data = await res.json();
       setRequests(data);
+      // If a request is currently selected, update it with fresh data
+      if (selectedRequest) {
+          const updated = data.find((r: VerificationRequest) => r.id === selectedRequest.id);
+          if (updated) setSelectedRequest(updated);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -177,8 +184,8 @@ const AdminApp: React.FC = () => {
 
 
   // --- Actions ---
-  const updateStatus = async (id: number, status: 'APPROVED' | 'REJECTED') => {
-    if (!confirm(`Are you sure you want to ${status} this request?`)) return;
+  const updateStatus = async (id: number, status: 'APPROVED' | 'REJECTED' | 'PENDING') => {
+    if (!confirm(`Are you sure you want to change status to ${status}?`)) return;
     
     try {
       const res = await fetch(`${API_URL}/admin/verifications/${id}/status`, {
@@ -190,7 +197,7 @@ const AdminApp: React.FC = () => {
         body: JSON.stringify({ status })
       });
       if (res.ok) {
-        fetchRequests(); // Refresh list
+        fetchRequests(); // Refresh list and update selectedRequest automatically via effect
       } else {
         alert('Failed to update status');
       }
@@ -244,14 +251,14 @@ const AdminApp: React.FC = () => {
     <div className="min-h-screen bg-zinc-50 flex flex-col md:flex-row">
       
       {/* Sidebar / Navigation */}
-      <aside className="w-full md:w-64 bg-white border-r border-zinc-200 flex-shrink-0">
+      <aside className="w-full md:w-64 bg-white border-r border-zinc-200 flex-shrink-0 sticky top-0 h-screen overflow-y-auto">
          <div className="p-6 border-b border-zinc-100 flex items-center gap-2">
              <Shield className="text-blue-600" />
              <span className="font-bold text-xl text-zinc-900">Daftar Admin</span>
          </div>
          <nav className="p-4 space-y-2">
              <button 
-                onClick={() => { setActiveTab('verifications'); setSelectedUser(null); }}
+                onClick={() => { setActiveTab('verifications'); setSelectedUser(null); setSelectedRequest(null); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === 'verifications' 
                     ? 'bg-zinc-900 text-white' 
@@ -262,7 +269,7 @@ const AdminApp: React.FC = () => {
                  Requests
              </button>
              <button 
-                onClick={() => { setActiveTab('users'); setSelectedUser(null); }}
+                onClick={() => { setActiveTab('users'); setSelectedUser(null); setSelectedRequest(null); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === 'users' 
                     ? 'bg-zinc-900 text-white' 
@@ -281,87 +288,204 @@ const AdminApp: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="flex-1 p-6 overflow-y-auto h-screen">
         
         {/* === VERIFICATIONS VIEW === */}
         {activeTab === 'verifications' && (
             <div className="max-w-5xl mx-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-2xl font-bold text-zinc-800">Verification Requests</h1>
-                    <button onClick={fetchRequests} className="text-sm text-blue-600 hover:underline">Refresh</button>
-                </div>
+                {!selectedRequest ? (
+                    // LIST VIEW
+                    <>
+                        <div className="flex justify-between items-center mb-6">
+                            <h1 className="text-2xl font-bold text-zinc-800">Verification Requests</h1>
+                            <button onClick={fetchRequests} className="text-sm text-blue-600 hover:underline">Refresh</button>
+                        </div>
 
-                {loading && requests.length === 0 ? (
-                    <div className="text-center py-10 text-zinc-400">Loading...</div>
-                ) : requests.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-xl border border-zinc-200 text-zinc-400">
-                        No verification requests found.
-                    </div>
-                ) : (
-                    <div className="grid gap-6">
-                        {requests.map(req => (
-                            <div key={req.id} className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden flex flex-col md:flex-row">
-                                <div 
-                                    className="w-full md:w-48 h-48 bg-zinc-100 flex items-center justify-center cursor-pointer relative group"
-                                    onClick={() => setViewingImage(req.image_base64)}
-                                >
-                                    <img src={req.image_base64} className="w-full h-full object-cover" alt="Document" />
-                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center text-white opacity-0 group-hover:opacity-100">
-                                        <Eye size={24} />
-                                    </div>
-                                </div>
-
-                                <div className="p-6 flex-1">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="font-bold text-lg text-zinc-900 flex items-center gap-2">
-                                                <Store size={18} className="text-zinc-400" />
-                                                {req.custom_store_name}
-                                            </h3>
-                                            <p className="text-sm text-zinc-500 mt-1 flex items-center gap-1">
-                                                <User size={14} />
-                                                {req.owner_name} ({req.owner_username ? `@${req.owner_username}` : 'No username'})
-                                            </p>
+                        {loading && requests.length === 0 ? (
+                            <div className="text-center py-10 text-zinc-400">Loading...</div>
+                        ) : requests.length === 0 ? (
+                            <div className="text-center py-20 bg-white rounded-xl border border-zinc-200 text-zinc-400">
+                                No verification requests found.
+                            </div>
+                        ) : (
+                            <div className="grid gap-6">
+                                {requests.map(req => (
+                                    <div 
+                                        key={req.id} 
+                                        onClick={() => setSelectedRequest(req)}
+                                        className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden flex flex-col md:flex-row cursor-pointer hover:shadow-md transition-shadow group"
+                                    >
+                                        <div className="w-full md:w-32 h-32 bg-zinc-100 flex items-center justify-center relative">
+                                            <img src={req.image_base64} className="w-full h-full object-cover" alt="Document" />
                                         </div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                                            req.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                                            req.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
-                                            'bg-yellow-100 text-yellow-700'
-                                        }`}>
-                                            {req.status}
+
+                                        <div className="p-4 flex-1 flex flex-col justify-center">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h3 className="font-bold text-lg text-zinc-900 group-hover:text-blue-600 transition-colors">
+                                                    {req.custom_store_name}
+                                                </h3>
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
+                                                    req.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                                    req.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                    'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                    {req.status}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-zinc-500 mb-2">{req.owner_name} • {req.document_type}</p>
+                                            <p className="text-xs text-zinc-400 mt-auto">{new Date(req.created_at).toLocaleString()}</p>
+                                        </div>
+                                        
+                                        <div className="p-4 flex items-center justify-center border-l border-zinc-100">
+                                            <ChevronRight className="text-zinc-300" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    // DETAIL VIEW
+                    <div className="animate-in slide-in-from-right duration-300">
+                        <button 
+                            onClick={() => setSelectedRequest(null)}
+                            className="flex items-center gap-2 text-zinc-500 hover:text-zinc-900 mb-6 font-medium text-sm transition-colors"
+                        >
+                            <ArrowLeft size={16} /> Back to List
+                        </button>
+
+                        <div className="flex flex-col lg:flex-row gap-8">
+                            
+                            {/* Left Column: Image & Basic Info */}
+                            <div className="flex-1 space-y-6">
+                                {/* Image Viewer */}
+                                <div 
+                                    className="bg-zinc-100 rounded-xl overflow-hidden border border-zinc-200 relative group cursor-pointer"
+                                    onClick={() => setViewingImage(selectedRequest.image_base64)}
+                                >
+                                    <img src={selectedRequest.image_base64} className="w-full object-contain max-h-[500px]" alt="Document" />
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <span className="bg-black/70 text-white px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
+                                            <Eye size={16} /> View Fullscreen
                                         </span>
                                     </div>
+                                </div>
+                                
+                                {/* Status Actions - ALWAYS VISIBLE */}
+                                <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm">
+                                    <h3 className="text-sm font-bold text-zinc-400 uppercase mb-4">Manage Status</h3>
+                                    <div className="flex flex-col gap-3">
+                                        <button 
+                                            onClick={() => updateStatus(selectedRequest.id, 'APPROVED')}
+                                            className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${
+                                                selectedRequest.status === 'APPROVED' 
+                                                ? 'bg-green-600 text-white ring-2 ring-green-600 ring-offset-2' 
+                                                : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
+                                            }`}
+                                        >
+                                            <CheckCircle size={18} /> 
+                                            {selectedRequest.status === 'APPROVED' ? 'Current: APPROVED' : 'Set to APPROVED'}
+                                        </button>
+                                        
+                                        <button 
+                                            onClick={() => updateStatus(selectedRequest.id, 'REJECTED')}
+                                            className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${
+                                                selectedRequest.status === 'REJECTED' 
+                                                ? 'bg-red-600 text-white ring-2 ring-red-600 ring-offset-2' 
+                                                : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
+                                            }`}
+                                        >
+                                            <XCircle size={18} />
+                                            {selectedRequest.status === 'REJECTED' ? 'Current: REJECTED' : 'Set to REJECTED'}
+                                        </button>
 
-                                    <div className="grid grid-cols-2 gap-4 text-sm text-zinc-600 mb-6">
-                                        <div>
-                                            <span className="block text-xs font-bold text-zinc-400 uppercase">Document Type</span>
-                                            {req.document_type}
-                                        </div>
-                                        <div>
-                                            <span className="block text-xs font-bold text-zinc-400 uppercase">Submitted At</span>
-                                            {new Date(req.created_at).toLocaleString()}
-                                        </div>
+                                        <button 
+                                            onClick={() => updateStatus(selectedRequest.id, 'PENDING')}
+                                            className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${
+                                                selectedRequest.status === 'PENDING' 
+                                                ? 'bg-yellow-500 text-white ring-2 ring-yellow-500 ring-offset-2' 
+                                                : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-yellow-50 hover:text-yellow-700 hover:border-yellow-200'
+                                            }`}
+                                        >
+                                            <History size={18} />
+                                            {selectedRequest.status === 'PENDING' ? 'Current: PENDING' : 'Set to PENDING'}
+                                        </button>
                                     </div>
-
-                                    {req.status === 'PENDING' && (
-                                        <div className="flex gap-3 mt-auto">
-                                            <button 
-                                                onClick={() => updateStatus(req.id, 'APPROVED')}
-                                                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
-                                            >
-                                                <CheckCircle size={18} /> Approve
-                                            </button>
-                                            <button 
-                                                onClick={() => updateStatus(req.id, 'REJECTED')}
-                                                className="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
-                                            >
-                                                <XCircle size={18} /> Reject
-                                            </button>
-                                        </div>
-                                    )}
+                                    <p className="text-xs text-zinc-400 mt-4 text-center">
+                                        Note: Changing status to APPROVED will verify the store. Changing to other statuses will un-verify the store.
+                                    </p>
                                 </div>
                             </div>
-                        ))}
+
+                            {/* Right Column: Detailed Info */}
+                            <div className="w-full lg:w-96 space-y-6">
+                                <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm">
+                                    <h2 className="text-xl font-bold text-zinc-900 mb-1">{selectedRequest.custom_store_name}</h2>
+                                    <p className="text-zinc-500 text-sm mb-6">Store ID: {selectedRequest.store_id}</p>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-zinc-400 uppercase block mb-1">Owner Name</label>
+                                            <div className="flex items-center gap-2 text-zinc-900 font-medium">
+                                                <User size={18} className="text-zinc-400" />
+                                                {selectedRequest.owner_name}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-xs font-bold text-zinc-400 uppercase block mb-1">Phone Number</label>
+                                            <div className="flex items-center gap-2 text-zinc-900 font-medium">
+                                                <Phone size={18} className="text-zinc-400" />
+                                                {selectedRequest.owner_phone ? `+${selectedRequest.owner_phone}` : 'Not provided'}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-xs font-bold text-zinc-400 uppercase block mb-1">Telegram Username</label>
+                                            <div className="text-blue-600 font-medium">
+                                                {selectedRequest.owner_username ? `@${selectedRequest.owner_username}` : 'N/A'}
+                                            </div>
+                                        </div>
+
+                                        <hr className="border-zinc-100 my-4" />
+                                        
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-zinc-50 p-3 rounded-lg border border-zinc-100">
+                                                <label className="text-xs font-bold text-zinc-400 uppercase block mb-1">Debtors</label>
+                                                <div className="flex items-center gap-2 text-xl font-bold text-zinc-900">
+                                                    <Users size={20} className="text-blue-500" />
+                                                    {selectedRequest.debtors_count || 0}
+                                                </div>
+                                            </div>
+                                            <div className="bg-zinc-50 p-3 rounded-lg border border-zinc-100">
+                                                <label className="text-xs font-bold text-zinc-400 uppercase block mb-1">Transactions</label>
+                                                <div className="flex items-center gap-2 text-xl font-bold text-zinc-900">
+                                                    <CreditCard size={20} className="text-green-500" />
+                                                    {selectedRequest.transaction_count || 0}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <hr className="border-zinc-100 my-4" />
+
+                                        <div>
+                                            <label className="text-xs font-bold text-zinc-400 uppercase block mb-1">Document Type</label>
+                                            <div className="text-zinc-900 font-medium capitalize">
+                                                {selectedRequest.document_type}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-zinc-400 uppercase block mb-1">Submission Date</label>
+                                            <div className="text-zinc-900 font-medium">
+                                                {new Date(selectedRequest.created_at).toLocaleString()}
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
                     </div>
                 )}
             </div>

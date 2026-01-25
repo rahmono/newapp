@@ -229,6 +229,17 @@ export const getDebtors = async (): Promise<Debtor[]> => {
   }
 };
 
+export const getPublicDebtor = async (id: string): Promise<{ id: string, name: string, balance: number, storeName: string, transactions: Transaction[] } | null> => {
+    try {
+        const response = await fetch(`${API_URL}/public/debtors/${id}`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (e) {
+        console.error(e);
+        return null;
+    }
+};
+
 export const saveDebtor = async (newDebtor: Debtor): Promise<void> => {
   try {
     const response = await fetch(`${API_URL}/debtors`, {
