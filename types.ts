@@ -1,5 +1,4 @@
 
-
 export enum TransactionType {
   DEBT = 'DEBT',     // Қарз додам (Merchant gave goods/money)
   PAYMENT = 'PAYMENT' // Пул гирифтам (Merchant received money)
@@ -35,6 +34,22 @@ export interface Store {
   permissions?: CollaboratorPermissions; // If not owner, what can they do?
   isVerified?: boolean; // Verification status
   verificationStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'NONE'; // New field for request status
+  // Tariff fields
+  subscriptionPlan?: string;
+  subscriptionEndDate?: string;
+  smsLimit?: number;
+  smsUsed?: number;
+  // Wallet fields
+  walletBalance?: number;
+}
+
+export interface WithdrawalRequest {
+  id: number;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  created_at: string;
+  card_number?: string;
+  phone_number?: string;
 }
 
 export interface CollaboratorPermissions {
@@ -86,7 +101,14 @@ export interface VerificationRequest {
   transaction_count?: number;
 }
 
-export type ViewState = 'DASHBOARD' | 'DEBTOR_DETAIL' | 'PROFILE' | 'ANALYTICS' | 'SETTINGS' | 'VERIFICATION';
+export interface OtpLog {
+  id: number;
+  phone_number: string;
+  ip_address: string;
+  created_at: string;
+}
+
+export type ViewState = 'DASHBOARD' | 'DEBTOR_DETAIL' | 'PROFILE' | 'ANALYTICS' | 'SETTINGS' | 'VERIFICATION' | 'TERMS' | 'STORES' | 'COLLABORATORS' | 'FAQ' | 'TARIFFS' | 'WALLET';
 
 // Telegram Types
 export interface TelegramUser {

@@ -1,8 +1,20 @@
-import { Debtor, Transaction, TransactionType, Store, TelegramUser, Collaborator, CollaboratorPermissions, UserSearchResult } from '../types';
+
+import { Debtor, Transaction, TransactionType, Store, TelegramUser, Collaborator, CollaboratorPermissions, UserSearchResult, WithdrawalRequest } from '../types';
 import { Language } from '../utils/translations';
 
-// API Base URL (empty for relative path if served from same origin)
-const API_URL = '/api';
+// --- CONFIGURATION ---
+// Агар домен 'daftarapp.tj' бошад, мо API-ро аз сервери асосӣ даъват мекунем.
+// Лутфан 'daftarapp.tj'-ро ба домени нави худ иваз кунед.
+// 'steppay.fun'-ро ба домени асосии худ (ки дар он Node.js кор мекунад) иваз кунед.
+const SECONDARY_DOMAIN = 'daftarapp.tj'; 
+const MAIN_SERVER_URL = 'https://steppay.fun'; 
+
+const isSecondaryDomain = window.location.hostname.includes(SECONDARY_DOMAIN);
+
+// API Base URL
+const API_URL = isSecondaryDomain 
+  ? `${MAIN_SERVER_URL}/api` // Агар аз домени нав бошад, пурра адресро менависем
+  : '/api';                  // Агар аз домени асосӣ бошад, нисбӣ мемонем
 
 // Store current Telegram User ID and Store ID in memory
 let currentTelegramId: string = 'public'; 
@@ -33,7 +45,7 @@ const getHeaders = () => {
 
 // --- AUTH & USER METHODS ---
 
-export const syncUser = async (user: TelegramUser): Promise<{ lastActiveStoreId: string | null, language: Language, phoneNumber: string | null }> => {
+export const syncUser = async (user: TelegramUser): Promise<{ lastActiveStoreId: string | null, language: Language, phoneNumber: string | null, requirePhone?: boolean }> => {
     try {
         const response = await fetch(`${API_URL}/auth/sync`, {
             method: 'POST',
@@ -45,7 +57,8 @@ export const syncUser = async (user: TelegramUser): Promise<{ lastActiveStoreId:
         return { 
             lastActiveStoreId: data.lastActiveStoreId || null,
             language: data.language || 'tg',
-            phoneNumber: data.phoneNumber || null
+            phoneNumber: data.phoneNumber || null,
+            requirePhone: data.requirePhone || false
         };
     } catch (e) {
         console.error('Sync failed', e);
@@ -330,6 +343,65 @@ export const sendSmsReminder = async (debtorId: string): Promise<void> => {
     throw error;
   }
 };
+
+// --- PAYMENT METHODS ---
+
+// Subscription Payment
+export const createSubscriptionInvoice = async (plan: 'STANDARD' | 'PRO'): Promise<string> => {
+    const response = await fetch(`${API_URL}/payments/create-invoice`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ plan })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error || 'Payment initialization failed');
+    }
+    return data.checkout_url;
+};
+
+// Debtor Debt Payment (Public)
+export const initiateDebtPayment = async (debtorId: string, amount: number): Promise<string> => {
+    const response = await fetch(`${API_URL}/payments/create-debt-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ debtorId, amount })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error || 'Payment initialization failed');
+    }
+    return data.checkout_url;
+};
+
+// --- WALLET & WITHDRAWAL METHODS ---
+
+export const getStoreWallet = async (): Promise<{ balance: number, withdrawals: WithdrawalRequest[] }> => {
+    try {
+        const response = await fetch(`${API_URL}/stores/wallet`, {
+            headers: getHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to fetch wallet');
+        return await response.json();
+    } catch (error) {
+        console.error(error);
+        return { balance: 0, withdrawals: [] };
+    }
+};
+
+export const requestStoreWithdrawal = async (amount: number, cardNumber: string, phoneNumber: string): Promise<void> => {
+    const response = await fetch(`${API_URL}/stores/wallet/withdraw`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ amount, cardNumber, phoneNumber })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error || 'Withdrawal request failed');
+    }
+};
+
+// --- UTILS ---
 
 export const formatCurrency = (amount: number): string => {
   // Safe parsing for string inputs from DB

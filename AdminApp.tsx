@@ -1,6 +1,8 @@
+
+
 import React, { useState, useEffect } from 'react';
-import { Shield, Lock, CheckCircle, XCircle, Eye, User, Store, Calendar, LogOut, Users, Search, ChevronLeft, ChevronRight, Menu, ArrowRight, ArrowLeft, History, Phone, CreditCard, BarChart } from 'lucide-react';
-import { VerificationRequest, AdminUser, Store as StoreType, Debtor } from './types';
+import { Shield, Lock, CheckCircle, XCircle, Eye, User, Store, Calendar, LogOut, Users, Search, ChevronLeft, ChevronRight, Menu, ArrowRight, ArrowLeft, History, Phone, CreditCard, BarChart, ShieldAlert, Monitor, RefreshCw, Trash2 } from 'lucide-react';
+import { VerificationRequest, AdminUser, Store as StoreType, Debtor, OtpLog } from './types';
 import { formatCurrency, formatDate } from './services/storage'; // Reusing existing helper
 
 // API endpoints helper
@@ -8,7 +10,7 @@ const API_URL = '/api';
 
 const AdminApp: React.FC = () => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('admin_token'));
-  const [activeTab, setActiveTab] = useState<'verifications' | 'users'>('verifications');
+  const [activeTab, setActiveTab] = useState<'verifications' | 'users' | 'ratelimits'>('verifications');
   const [loading, setLoading] = useState(false);
 
   // Verifications State
@@ -21,6 +23,9 @@ const AdminApp: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [userSearch, setUserSearch] = useState('');
+
+  // Rate Limits State
+  const [otpLogs, setOtpLogs] = useState<OtpLog[]>([]);
 
   // Drill-down State (Users -> Stores -> Debtors)
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
@@ -148,11 +153,28 @@ const AdminApp: React.FC = () => {
     }
   };
 
+  const fetchOtpLogs = async () => {
+      if (!token) return;
+      setLoading(true);
+      try {
+          const res = await fetch(`${API_URL}/admin/otp-logs`, {
+              headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          setOtpLogs(data);
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setLoading(false);
+      }
+  };
+
   // --- Effects ---
   useEffect(() => {
     if (token) {
         if (activeTab === 'verifications') fetchRequests();
         if (activeTab === 'users') fetchUsers();
+        if (activeTab === 'ratelimits') fetchOtpLogs();
     }
   }, [token, activeTab, page]); // Reload when tab or page changes
 
@@ -204,6 +226,29 @@ const AdminApp: React.FC = () => {
     } catch (err) {
       alert('Error updating status');
     }
+  };
+
+  const resetLimit = async (type: 'phone' | 'ip', value: string) => {
+      if (!confirm(`Are you sure you want to RESET limits for this ${type}: ${value}? This will clear all recent logs.`)) return;
+
+      try {
+          const res = await fetch(`${API_URL}/admin/otp-logs/reset`, {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}` 
+              },
+              body: JSON.stringify({ type, value })
+          });
+          if (res.ok) {
+              alert('Limit reset successfully');
+              fetchOtpLogs();
+          } else {
+              alert('Failed to reset limit');
+          }
+      } catch (e) {
+          alert('Server error');
+      }
   };
 
   // --- Login View ---
@@ -278,6 +323,17 @@ const AdminApp: React.FC = () => {
              >
                  <Users size={18} />
                  Users
+             </button>
+             <button 
+                onClick={() => { setActiveTab('ratelimits'); setSelectedUser(null); setSelectedRequest(null); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'ratelimits' 
+                    ? 'bg-zinc-900 text-white' 
+                    : 'text-zinc-600 hover:bg-zinc-100'
+                }`}
+             >
+                 <ShieldAlert size={18} />
+                 Rate Limits
              </button>
          </nav>
          <div className="p-4 mt-auto border-t border-zinc-100">
@@ -703,6 +759,60 @@ const AdminApp: React.FC = () => {
                     </div>
                 )}
             </div>
+        )}
+
+        {/* === RATE LIMITS VIEW === */}
+        {activeTab === 'ratelimits' && (
+             <div className="max-w-5xl mx-auto">
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-2xl font-bold text-zinc-800">Rate Limit Logs</h1>
+                    <button onClick={fetchOtpLogs} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                        <RefreshCw size={14} /> Refresh
+                    </button>
+                </div>
+
+                <div className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-zinc-50 border-b border-zinc-100 text-xs text-zinc-500 uppercase">
+                                <th className="p-4 font-semibold">Time</th>
+                                <th className="p-4 font-semibold">Phone</th>
+                                <th className="p-4 font-semibold">IP Address</th>
+                                <th className="p-4 font-semibold text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100 text-sm">
+                            {loading && otpLogs.length === 0 ? (
+                                <tr><td colSpan={4} className="p-8 text-center text-zinc-400">Loading logs...</td></tr>
+                            ) : otpLogs.length === 0 ? (
+                                <tr><td colSpan={4} className="p-8 text-center text-zinc-400">No recent OTP requests.</td></tr>
+                            ) : (
+                                otpLogs.map(log => (
+                                    <tr key={log.id} className="hover:bg-zinc-50 transition-colors">
+                                        <td className="p-4 text-zinc-500">{new Date(log.created_at).toLocaleString()}</td>
+                                        <td className="p-4 font-medium text-zinc-900">{log.phone_number}</td>
+                                        <td className="p-4 text-zinc-600 font-mono text-xs">{log.ip_address}</td>
+                                        <td className="p-4 text-right flex items-center justify-end gap-2">
+                                            <button 
+                                                onClick={() => resetLimit('phone', log.phone_number)}
+                                                className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg text-xs font-medium transition-colors border border-zinc-200"
+                                            >
+                                                Reset Phone
+                                            </button>
+                                            <button 
+                                                onClick={() => resetLimit('ip', log.ip_address)}
+                                                className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg text-xs font-medium transition-colors border border-zinc-200"
+                                            >
+                                                Reset IP
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+             </div>
         )}
 
       </main>

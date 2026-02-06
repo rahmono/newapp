@@ -1,45 +1,66 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Search, 
   Plus, 
   User, 
   ChevronRight, 
-  Calendar,
+  MessageCircle, 
+  PhoneCall, 
+  History, 
+  BarChart3, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  Store, 
+  Loader2, 
+  ShieldAlert, 
+  Send, 
+  FileText, 
+  MessageCircleQuestion, 
   MoreVertical,
-  MessageCircle,
-  PhoneCall,
-  History,
-  BarChart3,
-  Filter,
-  ArrowUpRight,
-  ArrowDownLeft,
-  LogOut,
-  Store,
-  ListFilter,
-  Loader2,
-  ShieldCheck,
-  Info,
+  Edit2,
   Trash2,
-  Briefcase,
-  Check,
   Users,
-  Lock,
-  X,
   UserCircle2,
   PieChart,
-  Edit2,
   Settings,
   Languages,
-  AlertTriangle,
-  BadgeCheck,
-  ShieldAlert,
-  Clock,
-  XCircle,
-  Phone,
-  Send
+  Check,
+  X,
+  Info,
+  Calendar,
+  CreditCard,
+  Zap,
+  Gift,
+  Wallet,
+  ArrowRight
 } from 'lucide-react';
-import { Debtor, Transaction, TransactionType, ViewState, TelegramUser, Store as StoreType, Collaborator, CollaboratorPermissions } from './types';
-import { getDebtors, saveDebtor, updateDebtorTransaction, deleteDebtor, deleteTransaction, formatCurrency, formatDate, setTelegramId, getStores, createStore, setStoreId, syncUser, getCollaborators, addCollaborator, removeCollaborator, saveLastActiveStore, updateDebtor, saveLanguage, submitVerificationRequest, sendSmsReminder } from './services/storage';
+import { Debtor, Transaction, TransactionType, ViewState, TelegramUser, Store as StoreType, Collaborator, CollaboratorPermissions, WithdrawalRequest } from './types';
+import { 
+    getDebtors, 
+    saveDebtor, 
+    updateDebtorTransaction, 
+    deleteDebtor, 
+    deleteTransaction, 
+    formatCurrency, 
+    formatDate, 
+    setTelegramId, 
+    getStores, 
+    createStore, 
+    setStoreId, 
+    syncUser, 
+    getCollaborators, 
+    addCollaborator, 
+    removeCollaborator, 
+    saveLastActiveStore, 
+    updateDebtor, 
+    saveLanguage, 
+    submitVerificationRequest, 
+    sendSmsReminder, 
+    createSubscriptionInvoice,
+    getStoreWallet,
+    requestStoreWithdrawal
+} from './services/storage';
 import { translations, Language } from './utils/translations';
 import TransactionModal from './components/TransactionModal';
 import AddDebtorModal from './components/AddDebtorModal';
@@ -48,9 +69,8 @@ import AddStoreModal from './components/AddStoreModal';
 import AddCollaboratorModal from './components/AddCollaboratorModal';
 import VerificationView from './components/VerificationView';
 import ConnectPhoneModal from './components/ConnectPhoneModal';
-import LoginView from './components/LoginView';
 
-// --- Sub Components ---
+// --- SUB-COMPONENTS ---
 
 const Header: React.FC<{ 
   view: ViewState; 
@@ -108,6 +128,30 @@ const Header: React.FC<{
          <div className="w-full flex items-center justify-center relative">
           <h1 className="text-sm font-semibold text-zinc-900">{t('verification_title')}</h1>
         </div>
+      ) : view === 'TARIFFS' ? (
+          <div className="w-full flex items-center justify-center relative">
+              <h1 className="text-sm font-semibold text-zinc-900">{t('tariffs_title')}</h1>
+          </div>
+      ) : view === 'WALLET' ? (
+          <div className="w-full flex items-center justify-center relative">
+              <h1 className="text-sm font-semibold text-zinc-900">Ҳамён</h1>
+          </div>
+      ) : view === 'TERMS' ? (
+          <div className="w-full flex items-center justify-center relative">
+              <h1 className="text-sm font-semibold text-zinc-900">{t('terms_of_service')}</h1>
+          </div>
+      ) : view === 'STORES' ? (
+          <div className="w-full flex items-center justify-center relative">
+              <h1 className="text-sm font-semibold text-zinc-900">{t('my_stores')}</h1>
+          </div>
+      ) : view === 'COLLABORATORS' ? (
+          <div className="w-full flex items-center justify-center relative">
+              <h1 className="text-sm font-semibold text-zinc-900">{t('collaborators')}</h1>
+          </div>
+      ) : view === 'FAQ' ? (
+          <div className="w-full flex items-center justify-center relative">
+              <h1 className="text-sm font-semibold text-zinc-900">{t('faq_title')}</h1>
+          </div>
       ) : (
         <>
           <h1 className="text-sm font-semibold text-zinc-900 truncate max-w-[200px]">{title}</h1>
@@ -146,7 +190,6 @@ const Header: React.FC<{
   );
 };
 
-// ... (Other components: EmptyState, TransactionDetailsModal, SettingsView remain same)
 const EmptyState: React.FC<{ message: string }> = ({ message }) => (
   <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
     <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
@@ -156,7 +199,6 @@ const EmptyState: React.FC<{ message: string }> = ({ message }) => (
   </div>
 );
 
-// --- Transaction Detail Modal Component ---
 const TransactionDetailsModal: React.FC<{
     transaction: Transaction | null;
     onClose: () => void;
@@ -166,7 +208,6 @@ const TransactionDetailsModal: React.FC<{
 }> = ({ transaction, onClose, onDelete, showCreator, t }) => {
     if (!transaction) return null;
 
-    // Calculate Before Balance if BalanceAfter exists
     let balanceBefore = 0;
     if (transaction.balanceAfter !== undefined && transaction.balanceAfter !== null) {
         if (transaction.type === TransactionType.DEBT) {
@@ -179,21 +220,18 @@ const TransactionDetailsModal: React.FC<{
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-zinc-100 animate-in fade-in zoom-in duration-200">
-                
                 <div className="flex items-center justify-between p-4 border-b border-zinc-50">
                     <h3 className="font-medium text-zinc-900">{t('transaction_detail_title')}</h3>
                     <button onClick={onClose} className="p-1 hover:bg-zinc-100 rounded-full text-zinc-500 transition-colors">
                         <X size={20} />
                     </button>
                 </div>
-
                 <div className="p-6 text-center">
                     <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
                         transaction.type === TransactionType.DEBT ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
                     }`}>
                         {transaction.type === TransactionType.DEBT ? <ArrowUpRight size={32} /> : <ArrowDownLeft size={32} />}
                     </div>
-                    
                     <h2 className={`text-3xl font-bold mb-1 ${
                          transaction.type === TransactionType.DEBT ? 'text-red-600' : 'text-green-600'
                     }`}>
@@ -202,9 +240,7 @@ const TransactionDetailsModal: React.FC<{
                     <p className="text-sm text-zinc-500">{formatDate(transaction.date)}</p>
                     {transaction.description && <p className="text-sm text-zinc-800 font-medium mt-2">"{transaction.description}"</p>}
                 </div>
-
                 <div className="px-6 pb-6 space-y-4">
-                    {/* User Info - ONLY SHOWN IF showCreator IS TRUE */}
                     {showCreator && (
                         <div className="bg-zinc-50 p-3 rounded-xl flex items-center gap-3">
                              <div className="w-10 h-10 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-400">
@@ -216,8 +252,6 @@ const TransactionDetailsModal: React.FC<{
                              </div>
                         </div>
                     )}
-
-                    {/* Balance History Calculation */}
                     {transaction.balanceAfter !== undefined && transaction.balanceAfter !== null ? (
                          <div className="space-y-2 border-t border-zinc-100 pt-4">
                              <p className="text-xs text-zinc-400 uppercase font-semibold text-center mb-2">{t('balance_change')}</p>
@@ -245,7 +279,6 @@ const TransactionDetailsModal: React.FC<{
                         </div>
                     )}
                 </div>
-
                 <div className="p-4 bg-zinc-50 border-t border-zinc-100">
                     <button 
                         onClick={() => {
@@ -260,13 +293,140 @@ const TransactionDetailsModal: React.FC<{
                         {t('delete_transaction')}
                     </button>
                 </div>
-
             </div>
         </div>
     );
 };
 
-// --- Settings View Component ---
+// --- NEW COMPONENT: Wallet View (To match existing design) ---
+const WalletView: React.FC<{
+    t: (key: string) => string;
+}> = ({ t }) => {
+    const [balance, setBalance] = useState(0);
+    const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+    
+    // Withdraw Form
+    const [amount, setAmount] = useState('');
+    const [card, setCard] = useState('');
+    const [phone, setPhone] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        loadWallet();
+    }, []);
+
+    const loadWallet = async () => {
+        setIsLoading(true);
+        const data = await getStoreWallet();
+        setBalance(data.balance);
+        setWithdrawals(data.withdrawals);
+        setIsLoading(false);
+    };
+
+    const handleWithdraw = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            await requestStoreWithdrawal(parseFloat(amount), card, phone);
+            alert("Дархост қабул шуд!");
+            setShowWithdrawModal(false);
+            setAmount('');
+            setCard('');
+            loadWallet(); // Refresh
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6 animate-in slide-in-from-right duration-300 pb-10">
+            {/* Balance Card */}
+            <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 p-6 rounded-2xl text-white shadow-lg relative overflow-hidden">
+                <div className="relative z-10">
+                    <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">Баланси дастрас</p>
+                    <h2 className="text-4xl font-bold tracking-tight">{formatCurrency(balance)}</h2>
+                    <p className="text-xs text-zinc-500 mt-2">Маблағ аз пардохтҳои онлайн ҷамъ шудааст.</p>
+                    
+                    <button 
+                        onClick={() => setShowWithdrawModal(true)}
+                        disabled={balance <= 0}
+                        className="mt-6 bg-white text-zinc-900 px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        <CreditCard size={16} />
+                        Хуруҷи маблағ
+                    </button>
+                </div>
+                <div className="absolute right-0 bottom-0 opacity-10">
+                    <Wallet size={120} />
+                </div>
+            </div>
+
+            {/* History */}
+            <div className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50/50">
+                    <h3 className="font-bold text-zinc-900 text-sm">Таърихи дархостҳо</h3>
+                </div>
+                {withdrawals.length === 0 ? (
+                    <div className="p-8 text-center text-zinc-400 text-sm">
+                        Таърих холӣ аст.
+                    </div>
+                ) : (
+                    <div className="divide-y divide-zinc-100">
+                        {withdrawals.map(w => (
+                            <div key={w.id} className="p-4 flex items-center justify-between">
+                                <div>
+                                    <p className="font-bold text-zinc-900">{formatCurrency(w.amount)}</p>
+                                    <p className="text-xs text-zinc-500">{new Date(w.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${
+                                    w.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                                    w.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                    'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                    {w.status}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Withdrawal Modal */}
+            {showWithdrawModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-sm p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-zinc-900">Дархости хуруҷ</h3>
+                            <button onClick={() => setShowWithdrawModal(false)}><X size={20} className="text-zinc-400" /></button>
+                        </div>
+                        <form onSubmit={handleWithdraw} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Маблағ</label>
+                                <input type="number" required max={balance} value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:border-zinc-900" placeholder="0.00" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Рақами Корт (Корти миллӣ)</label>
+                                <input type="text" required value={card} onChange={e => setCard(e.target.value)} className="w-full p-3 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:border-zinc-900" placeholder="5058..." />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Рақами телефон</label>
+                                <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-3 bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:border-zinc-900" placeholder="992..." />
+                            </div>
+                            <button disabled={submitting} type="submit" className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold mt-2">
+                                {submitting ? '...' : 'Равон кардан'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const SettingsView: React.FC<{
   language: Language;
   onLanguageChange: (lang: Language) => void;
@@ -281,7 +441,6 @@ const SettingsView: React.FC<{
          </div>
          <div className="p-4 space-y-3">
             <p className="text-sm text-zinc-500 mb-2">{t('select_language')}</p>
-            
             <button 
               onClick={() => onLanguageChange('tg')}
               className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${
@@ -293,7 +452,6 @@ const SettingsView: React.FC<{
                <span className="font-medium">Тоҷикӣ</span>
                {language === 'tg' && <Check size={16} />}
             </button>
-
             <button 
               onClick={() => onLanguageChange('ru')}
               className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${
@@ -311,453 +469,531 @@ const SettingsView: React.FC<{
   );
 };
 
-// --- User Profile Component (No Charts) ---
-const UserProfile: React.FC<{
-  currentUser: string,
-  telegramUser: TelegramUser | null,
-  phoneNumber: string | null,
-  onSwitchUser: () => void,
-  stores: StoreType[],
-  currentStoreId: string,
-  onSwitchStore: (id: string) => void,
-  onCreateStore: () => void,
-  currentStore: StoreType | undefined,
-  onAddCollaborator: () => void,
-  onViewAnalytics: () => void,
-  onOpenSettings: () => void,
-  collaborators: Collaborator[],
-  onRemoveCollaborator: (id: string) => void,
-  onVerifyStore: () => void,
-  t: (key: string) => string;
-}> = ({ currentUser, telegramUser, phoneNumber, onSwitchUser, stores, currentStoreId, onSwitchStore, onCreateStore, currentStore, onAddCollaborator, onViewAnalytics, onOpenSettings, collaborators, onRemoveCollaborator, onVerifyStore, t }) => {
+const TermsView: React.FC = () => {
+    return (
+        <div className="bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden animate-in slide-in-from-right duration-300">
+            <div className="p-6 space-y-6 text-sm text-zinc-700 leading-relaxed">
+                <h2 className="text-lg font-bold text-center text-zinc-900 mb-6 uppercase">
+                    СОЗИШНОМАИ ИСТИФОДАБАРАНДА (ОФЕРТА)<br/>
+                    <span className="text-xs font-normal text-zinc-500">Таҳрири №1 аз 27.01.2026</span>
+                </h2>
+                <section>
+                    <h3 className="font-bold text-zinc-900 mb-2">1. МУҚАРРАРОТИ УМУМӢ</h3>
+                    <p className="mb-2">1.1. Ин ҳуҷҷат шартномаи расмӣ байни Маъмурияти барномаи «Дафтар» (минбаъд – «Платформа») ва шахси воқеӣ ё ҳуқуқӣ (минбаъд – «Корбар») мебошад.</p>
+                    <p className="mb-2">1.2. Бо гузоштани аломат (галочка) дар банди «Розиям», Корбар тамоми шартҳои ин созишномаро бечунучаро қабул мекунад.</p>
+                    <p>1.3. Платформа хизматрасонии баҳисобгирии қарзҳо ва идоракунии муносибатҳои молиявиро пешниҳод мекунад.</p>
+                </section>
+                <section>
+                    <h3 className="font-bold text-zinc-900 mb-2">2. УҲДАДОРИҲОИ КОРБАР (МАҒОЗАДОР)</h3>
+                    <p className="mb-2">2.1. Корбар вазифадор аст, ки ҳангоми сабти ном маълумоти дуруст ва воқеӣ (аз ҷумла Рақами телефон, Ном, ИНН ва маълумоти Патент/Шаҳодатнома)-ро пешниҳод намояд.</p>
+                    <p className="mb-2">2.2. Масъулияти маълумот: Корбар барои дурустии қарзҳои сабтшуда дар назди мизоҷони худ ҷавобгар аст. Платформа барои баҳсҳои молиявии байни Мағозадор ва Харидор масъулият надорад.</p>
+                    <p>2.3. Корбар уҳдадор мешавад, ки аккаунти худро ба шахсони сеюм намедиҳад.</p>
+                </section>
+                <section>
+                    <h3 className="font-bold text-zinc-900 mb-2">3. СИЁСАТИ ИРСОЛИ ПАЁМАКҲО (ANTI-SPAM)</h3>
+                    <p className="mb-2">3.1. Платформа ба Корбар имконияти ирсоли SMS-огоҳиномаҳоро ба қарздорон фароҳам меорад.</p>
+                    <p className="mb-2">3.2. Манъи қатъии спам: Истифодаи Платформа барои ирсоли паёмакҳои таҳқиромез, таҳдидомез, таблиғоти беиҷозат (спам) ё қаллобӣ қатъиян манъ аст.</p>
+                    <p>3.3. Дар ҳолати шикоят аз ҷониби гирандагони SMS, Платформа ҳуқуқ дорад аккаунти Корбарро бидуни огоҳӣ маҳкам (блок) кунад ва маълумоти ӯро ба мақомоти ҳифзи ҳуқуқ пешниҳод намояд.</p>
+                </section>
+                <section>
+                    <h3 className="font-bold text-zinc-900 mb-2">4. МАХФИЯТ ВА АМНИЯТ</h3>
+                    <p className="mb-2">4.1. Платформа уҳдадор мешавад, ки маълумоти шахсии Корбар ва рӯйхати қарздорони ӯро ба шахсони сеюм фош накунад (ғайр аз ҳолатҳои пешбининамудаи қонунгузории ҶТ).</p>
+                    <p>4.2. Боргузории ҳуҷҷатҳо (Патент/ИНН) танҳо барои тасдиқи шахсият (Верификатсия) истифода мешавад ва дастраси омма намегардад.</p>
+                </section>
+                <section>
+                    <h3 className="font-bold text-zinc-900 mb-2">5. РАДДИ МАСЪУЛИЯТ</h3>
+                    <p className="mb-2">5.1. «Дафтар» танҳо воситаи техникӣ (дафтар) аст. Мо кафолат намедиҳем, ки қарздор қарзи худро бармегардонад.</p>
+                    <p>5.2. Платформа барои зарарҳои техникӣ ё қатъшавии муваққатии барнома ҷавобгар нест, гарчанде тамоми кӯшишро барои кори устувор ба харҷ медиҳад.</p>
+                </section>
+                <div className="pt-6 mt-4 border-t border-zinc-100 text-center text-xs text-zinc-400">
+                    &copy; 2026 Дафтар. Ҳамаи ҳуқуқҳо ҳифз шудаанд.
+                </div>
+            </div>
+        </div>
+    );
+};
 
-  const handleRemoveCollaborator = async (userId: string) => {
-    if (confirm("Оё мехоҳед ин ҳамкорро нест кунед?")) {
-        onRemoveCollaborator(userId);
-    }
-  };
+const FaqView: React.FC<{ t: (key: string) => string }> = ({ t }) => {
+  const faqs = [
+    { q: t('faq_q1'), a: t('faq_a1') },
+    { q: t('faq_q2'), a: t('faq_a2') },
+    { q: t('faq_q3'), a: t('faq_a3') },
+    { q: t('faq_q4'), a: t('faq_a4') },
+    { q: t('faq_q5'), a: t('faq_a5') },
+    { q: t('faq_q6'), a: t('faq_a6') },
+  ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 pb-10">
-       {/* User Card */}
-       <div className="bg-zinc-900 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
-        <div className="relative z-10 flex items-center justify-between">
-           <div className="flex items-center gap-4">
-             <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center text-white border-2 border-white/20 overflow-hidden">
-               {telegramUser?.photo_url ? (
-                  <img src={telegramUser.photo_url} alt={telegramUser.first_name} className="w-full h-full object-cover" />
-               ) : (
-                  <User size={32} />
-               )}
-             </div>
-             <div>
-               <h2 className="text-xl font-bold flex items-center gap-2">
-                 {currentStore ? currentStore.name : currentUser}
-               </h2>
-               {phoneNumber ? (
-                 <div className="flex items-center gap-1 mt-1 text-zinc-300 text-sm">
-                    <Phone size={12} />
-                    <span>+{phoneNumber}</span>
-                 </div>
-               ) : (
-                 !telegramUser && <p className="text-xs text-zinc-400 mt-1">{t('guest_mode')}</p>
-               )}
-             </div>
-           </div>
-           
-           <button 
-             onClick={onSwitchUser}
-             className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-             title={t('switch_user')}
-           >
-             <LogOut size={20} />
-           </button>
-           
-        </div>
-        {/* Abstract Pattern */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-2xl"></div>
-      </div>
-
-      {/* Analytics Entry Button */}
-      <button 
-        onClick={onViewAnalytics}
-        className="w-full bg-white p-4 rounded-xl border border-zinc-200 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all"
-      >
-         <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-                 <PieChart size={20} />
-             </div>
-             <div className="text-left">
-                 <h3 className="font-bold text-zinc-900 text-sm">{t('store_stats')}</h3>
-                 <p className="text-xs text-zinc-500">{t('view_analytics')}</p>
-             </div>
-         </div>
-         <ChevronRight size={20} className="text-zinc-300 group-hover:text-zinc-500" />
-      </button>
-
-      {/* Settings Button */}
-      <button 
-        onClick={onOpenSettings}
-        className="w-full bg-white p-4 rounded-xl border border-zinc-200 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all"
-      >
-         <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-zinc-100 text-zinc-600 rounded-lg flex items-center justify-center">
-                 <Settings size={20} />
-             </div>
-             <div className="text-left">
-                 <h3 className="font-bold text-zinc-900 text-sm">{t('settings')}</h3>
-                 <p className="text-xs text-zinc-500">{t('language')}</p>
-             </div>
-         </div>
-         <ChevronRight size={20} className="text-zinc-300 group-hover:text-zinc-500" />
-      </button>
-
-      {/* Stores Management Section */}
-      <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-sm">
-        <div className="px-4 py-3 bg-zinc-50 border-b border-zinc-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-             <Briefcase size={16} className="text-zinc-500" />
-             <h3 className="font-medium text-sm text-zinc-900">{t('my_stores')}</h3>
-          </div>
-          <button 
-            onClick={onCreateStore}
-            className="flex items-center gap-1 text-[10px] bg-zinc-900 text-white px-2 py-1 rounded-md hover:bg-zinc-800 transition-colors"
-          >
-            <Plus size={12} />
-            {t('new_store')}
-          </button>
-        </div>
-        <div className="p-2 space-y-2">
-            {stores.map(store => (
-                <button
-                    key={store.id}
-                    onClick={() => onSwitchStore(store.id)}
-                    className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-all ${
-                        store.id === currentStoreId 
-                        ? 'bg-blue-50 border border-blue-100' 
-                        : 'hover:bg-zinc-50 border border-transparent'
-                    }`}
-                >
-                    <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                            store.id === currentStoreId ? 'bg-blue-200 text-blue-700' : 'bg-zinc-100 text-zinc-400'
-                        }`}>
-                            <Store size={16} />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <p className={`text-sm font-medium ${
-                                    store.id === currentStoreId ? 'text-blue-900' : 'text-zinc-900'
-                                }`}>
-                                    {store.name}
-                                </p>
-                                {!store.isOwner && (
-                                    <span className="text-[9px] bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded border border-zinc-200">
-                                        {t('collaborator')}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-[10px] text-zinc-400">{formatDate(store.createdAt)}</p>
-                        </div>
-                    </div>
-                    {store.id === currentStoreId && (
-                        <Check size={16} className="text-blue-600" />
-                    )}
-                </button>
-            ))}
-        </div>
-      </div>
-    
-      {/* Collaborators Section - Only visible to Owner */}
-      {currentStore?.isOwner && (
-          <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-sm">
-            <div className="px-4 py-3 bg-zinc-50 border-b border-zinc-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                 <Users size={16} className="text-zinc-500" />
-                 <h3 className="font-medium text-sm text-zinc-900">{t('collaborators')}</h3>
+    <div className="space-y-4 animate-in fade-in duration-300">
+      {faqs.map((faq, idx) => (
+        <div key={idx} className="bg-white p-5 rounded-xl border border-zinc-200 shadow-sm">
+          <div className="flex gap-3">
+              <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 text-xs font-bold">?</div>
+              <div>
+                  <h3 className="font-bold text-zinc-900 mb-2 text-sm">{faq.q}</h3>
+                  <p className="text-zinc-600 text-sm leading-relaxed">{faq.a}</p>
               </div>
-              <button 
-                onClick={onAddCollaborator}
-                className="flex items-center gap-1 text-[10px] bg-white border border-zinc-200 text-zinc-700 px-2 py-1 rounded-md hover:bg-zinc-50 transition-colors"
-              >
-                <Plus size={12} />
-                {t('add')}
-              </button>
-            </div>
-            <div className="p-2 space-y-2">
-                {collaborators.length === 0 ? (
-                    <p className="text-center text-xs text-zinc-400 py-3">{t('no_collaborators')}</p>
-                ) : (
-                    collaborators.map(collab => (
-                        <div key={collab.id} className="flex items-center justify-between p-3 bg-zinc-50/50 rounded-lg border border-zinc-100">
-                           <div className="flex items-center gap-3">
-                               <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-500 overflow-hidden">
-                                   {collab.photoUrl ? <img src={collab.photoUrl} className="w-full h-full object-cover"/> : <User size={14} />}
-                               </div>
-                               <div>
-                                   <p className="text-sm font-medium text-zinc-900">{collab.firstName}</p>
-                                   <div className="flex gap-1 mt-1">
-                                       {collab.permissions.canAddDebt && <span className="text-[9px] bg-blue-50 text-blue-600 px-1 rounded">{t('perm_add_debt')}</span>}
-                                       {collab.permissions.canAddPayment && <span className="text-[9px] bg-green-50 text-green-600 px-1 rounded">{t('perm_add_payment')}</span>}
-                                       {collab.permissions.canDeleteDebtor && <span className="text-[9px] bg-red-50 text-red-600 px-1 rounded">{t('perm_delete')}</span>}
-                                   </div>
-                               </div>
-                           </div>
-                           <button 
-                            onClick={() => handleRemoveCollaborator(collab.userTelegramId)}
-                            className="text-zinc-400 hover:text-red-500 p-2"
-                           >
-                               <X size={16} />
-                           </button>
-                        </div>
-                    ))
-                )}
-            </div>
-          </div>
-      )}
-    </div>
-  );
-}
-
-// --- Analytics Dashboard Component ---
-const AnalyticsDashboard: React.FC<{ 
-  debtors: Debtor[],
-  showCreator: boolean,
-  t: (key: string) => string;
-}> = ({ debtors, showCreator, t }) => {
-  // ... (AnalyticsDashboard logic unchanged)
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [activeListTab, setActiveListTab] = useState<'DEBT' | 'PAYMENT'>('DEBT');
-
-  // Flatten all transactions from all debtors and include debtor name
-  const allTransactions = useMemo(() => {
-    return debtors.flatMap(d => (d.transactions || []).map(t => ({
-      ...t,
-      debtorName: d.name
-    })));
-  }, [debtors]);
-
-  // Filter transactions based on date range
-  const filteredTransactions = useMemo(() => {
-    return allTransactions.filter(t => {
-      const tDate = new Date(t.date).getTime();
-      const start = startDate ? new Date(startDate).getTime() : 0;
-      const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : Infinity;
-      return tDate >= start && tDate <= end;
-    });
-  }, [allTransactions, startDate, endDate]);
-
-  // Calculate totals
-  const totals = useMemo(() => {
-    return filteredTransactions.reduce((acc, t) => {
-      if (t.type === TransactionType.DEBT) {
-        // Ensure amount is treated as number
-        acc.debt += Number(t.amount);
-      } else {
-        acc.payment += Number(t.amount);
-      }
-      return acc;
-    }, { debt: 0, payment: 0 });
-  }, [filteredTransactions]);
-
-  // Group by Month
-  const monthlyStats = useMemo(() => {
-    const stats: Record<string, { debt: number; payment: number; order: number }> = {};
-    
-    filteredTransactions.forEach(t => {
-      const date = new Date(t.date);
-      const key = date.toLocaleString('tg-TJ', { month: 'long', year: 'numeric' });
-      const sortKey = date.getFullYear() * 100 + date.getMonth(); // For sorting
-      
-      if (!stats[key]) {
-        stats[key] = { debt: 0, payment: 0, order: sortKey };
-      }
-      
-      if (t.type === TransactionType.DEBT) {
-        stats[key].debt += Number(t.amount);
-      } else {
-        stats[key].payment += Number(t.amount);
-      }
-    });
-
-    return Object.entries(stats).sort(([, a], [, b]) => b.order - a.order);
-  }, [filteredTransactions]);
-
-  // Specific list for the bottom section
-  const detailedList = useMemo(() => {
-    return filteredTransactions
-      .filter(t => t.type === (activeListTab === 'DEBT' ? TransactionType.DEBT : TransactionType.PAYMENT))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredTransactions, activeListTab]);
-
-  return (
-    <div className="space-y-6 animate-in slide-in-from-right duration-300 pb-10">
-      
-      {/* Date Filter */}
-      <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm">
-        <div className="flex items-center gap-2 mb-3 text-zinc-500 text-sm">
-          <Filter size={16} />
-          <span className="font-medium">{t('time_filter')}</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-             <label className="text-[10px] uppercase text-zinc-400 font-semibold pl-1">{t('date_from')}</label>
-             <input 
-               type="date" 
-               className="w-full mt-1 p-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:border-zinc-900"
-               value={startDate}
-               onChange={(e) => setStartDate(e.target.value)}
-             />
-          </div>
-          <div>
-             <label className="text-[10px] uppercase text-zinc-400 font-semibold pl-1">{t('date_to')}</label>
-             <input 
-               type="date" 
-               className="w-full mt-1 p-2 bg-zinc-50 border border-zinc-200 rounded-lg text-sm outline-none focus:border-zinc-900"
-               value={endDate}
-               onChange={(e) => setEndDate(e.target.value)}
-             />
           </div>
         </div>
-      </div>
-
-      <h3 className="text-lg font-bold text-zinc-900 flex items-center gap-2 px-1">
-        <BarChart3 size={20} />
-        {t('results')}
-      </h3>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-          <div className="flex items-center gap-2 text-red-600 mb-2">
-            <ArrowUpRight size={16} />
-            <span className="text-xs font-medium uppercase">{t('total_debts')}</span>
-          </div>
-          <p className="text-lg font-bold text-red-700">{formatCurrency(totals.debt)}</p>
-        </div>
-        <div className="bg-green-50 p-4 rounded-xl border border-green-100">
-          <div className="flex items-center gap-2 text-green-600 mb-2">
-            <ArrowDownLeft size={16} />
-            <span className="text-xs font-medium uppercase">{t('total_payments')}</span>
-          </div>
-          <p className="text-lg font-bold text-green-700">{formatCurrency(totals.payment)}</p>
-        </div>
-      </div>
-
-      {/* Detailed Transaction List */}
-      <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-          <div className="flex items-center gap-2">
-            <ListFilter size={16} className="text-zinc-400" />
-            <h3 className="font-medium text-sm text-zinc-900">{t('detailed_list')}</h3>
-          </div>
-        </div>
-        
-        {/* List Tabs */}
-        <div className="flex border-b border-zinc-100">
-          <button 
-            onClick={() => setActiveListTab('DEBT')}
-            className={`flex-1 py-3 text-xs font-medium transition-colors border-b-2 ${
-              activeListTab === 'DEBT' 
-                ? 'border-red-500 text-red-600 bg-red-50/30' 
-                : 'border-transparent text-zinc-500 hover:bg-zinc-50'
-            }`}
-          >
-            {t('debts_list')}
-          </button>
-          <button 
-            onClick={() => setActiveListTab('PAYMENT')}
-            className={`flex-1 py-3 text-xs font-medium transition-colors border-b-2 ${
-              activeListTab === 'PAYMENT' 
-                ? 'border-green-500 text-green-600 bg-green-50/30' 
-                : 'border-transparent text-zinc-500 hover:bg-zinc-50'
-            }`}
-          >
-            {t('payments_list')}
-          </button>
-        </div>
-
-        {/* List Content */}
-        {detailedList.length === 0 ? (
-          <div className="p-8 text-center text-zinc-400 text-sm">
-            {t('no_data_period')}
-          </div>
-        ) : (
-          <ul className="divide-y divide-zinc-100 max-h-[300px] overflow-y-auto">
-            {detailedList.map((trx) => (
-              <li key={trx.id} className="p-4 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
-                <div>
-                  <p className="font-medium text-sm text-zinc-900">{trx.debtorName}</p>
-                  <p className="text-xs text-zinc-400 mt-0.5">{formatDate(trx.date)}</p>
-                  {trx.description && (
-                    <p className="text-[10px] text-zinc-400 mt-1 italic">{trx.description}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className={`font-semibold text-sm ${
-                    trx.type === TransactionType.DEBT ? 'text-red-600' : 'text-green-600'
-                  }`}>
-                    {trx.type === TransactionType.PAYMENT ? '+' : ''}{formatCurrency(trx.amount)}
-                  </span>
-                  {showCreator && (
-                      <div className="flex items-center justify-end gap-1 mt-1">
-                          <User size={10} className="text-zinc-300" />
-                          <p className="text-[10px] text-zinc-300">{trx.createdBy}</p>
-                      </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Monthly Breakdown Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2 bg-zinc-50/50">
-          <BarChart3 size={16} className="text-zinc-400" />
-          <h3 className="font-medium text-sm text-zinc-900">{t('monthly_chart')}</h3>
-        </div>
-        
-        {monthlyStats.length === 0 ? (
-          <div className="p-8 text-center text-zinc-400 text-sm">
-            {t('no_data_period')}
-          </div>
-        ) : (
-          <div className="divide-y divide-zinc-100">
-            {monthlyStats.map(([month, data]) => (
-              <div key={month} className="p-4">
-                <p className="font-medium text-sm text-zinc-900 mb-3 capitalize">{month}</p>
-                <div className="space-y-2">
-                  {/* Debt Bar */}
-                  <div className="flex items-center justify-between text-xs">
-                     <span className="text-zinc-500">{t('given')}</span>
-                     <span className="font-medium text-red-600">{formatCurrency(data.debt)}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-red-400 rounded-full" style={{ width: `${(data.debt / (data.debt + data.payment || 1)) * 100}%` }}></div>
-                  </div>
-
-                  {/* Payment Bar */}
-                  <div className="flex items-center justify-between text-xs mt-1">
-                     <span className="text-zinc-500">{t('received')}</span>
-                     <span className="font-medium text-green-600">{formatCurrency(data.payment)}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${(data.payment / (data.debt + data.payment || 1)) * 100}%` }}></div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      ))}
+      <div className="text-center p-6 bg-blue-50/50 rounded-xl mt-6 border border-blue-100">
+        <h3 className="font-bold text-blue-900 mb-2">{t('contact_support_title')}</h3>
+        <button 
+            onClick={() => window.open('https://t.me/daftartj_support', '_blank')}
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          <MessageCircle size={16} />
+          {t('contact_support_btn')}
+        </button>
       </div>
     </div>
   );
 };
 
-// --- Main App Component ---
+const TariffView: React.FC<{
+    currentStore: StoreType | undefined;
+    t: (key: string, params?: any) => string;
+}> = ({ currentStore, t }) => {
+    const [isLoading, setIsLoading] = useState<string | null>(null); // 'STANDARD' | 'PRO' | null
+
+    const handleSubscribe = async (plan: 'STANDARD' | 'PRO') => {
+        setIsLoading(plan);
+        try {
+            const checkoutUrl = await createSubscriptionInvoice(plan);
+            if (!checkoutUrl) {
+                alert('Хатогӣ: Истиноди пардохт ёфт нашуд. Лутфан ба дастгирӣ муроҷиат кунед.');
+                return;
+            }
+            if (window.Telegram?.WebApp) {
+                window.Telegram.WebApp.openLink(checkoutUrl);
+            } else {
+                window.location.href = checkoutUrl;
+            }
+        } catch (error: any) {
+            alert(`Error: ${error.message}`);
+        } finally {
+            setIsLoading(null);
+        }
+    };
+    
+    const PlanCard = ({ title, price, features, color, active, planType, showSubscribe }: { title: string, price: string, features: string[], color: string, active?: boolean, planType?: 'STANDARD' | 'PRO', showSubscribe?: boolean }) => (
+        <div className={`rounded-xl border p-5 relative overflow-hidden transition-all ${
+            active ? 'border-2 border-blue-500 bg-blue-50/20 shadow-md' : 'border-zinc-200 bg-white hover:border-zinc-300'
+        }`}>
+            {active && (
+                <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg uppercase">
+                    Active
+                </div>
+            )}
+            <h3 className={`font-bold text-lg mb-1 ${color}`}>{title}</h3>
+            <p className="text-sm font-semibold text-zinc-900 mb-4">{price}</p>
+            <ul className="space-y-2 mb-4">
+                {features.map((feat, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-xs text-zinc-600">
+                        <Check size={14} className="text-green-500 mt-0.5 shrink-0" />
+                        <span>{feat}</span>
+                    </li>
+                ))}
+            </ul>
+
+            {showSubscribe && planType && (
+                <button 
+                    onClick={() => handleSubscribe(planType)}
+                    disabled={isLoading !== null}
+                    className={`w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all active:scale-95 ${
+                        isLoading === planType 
+                        ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' 
+                        : 'bg-zinc-900 text-white hover:bg-zinc-800'
+                    }`}
+                >
+                    {isLoading === planType ? <Loader2 size={16} className="animate-spin" /> : <CreditCard size={16} />}
+                    Пайваст шудан
+                </button>
+            )}
+        </div>
+    );
+
+    return (
+        <div className="space-y-6 animate-in slide-in-from-right duration-300 pb-10">
+            
+            {/* Current Status Header */}
+            <div className="bg-gradient-to-r from-zinc-900 to-zinc-800 p-5 rounded-2xl text-white shadow-lg relative overflow-hidden">
+                <div className="relative z-10">
+                    <h2 className="text-sm font-medium text-zinc-400 uppercase mb-1">{t('current_plan')}</h2>
+                    <div className="flex items-center gap-2 mb-4">
+                        <Zap className="text-yellow-400" fill="currentColor" size={24} />
+                        <span className="text-2xl font-bold">
+                            {currentStore?.isVerified 
+                                ? t('tariff_plan', { plan: currentStore.subscriptionPlan || 'Standard' }) 
+                                : t('plan_free')}
+                        </span>
+                    </div>
+
+                    {currentStore?.isVerified && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs opacity-90">
+                                <span>{t('sms_usage')}</span>
+                                <span>{currentStore.smsUsed || 0} / {currentStore.smsLimit || 100}</span>
+                            </div>
+                            <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                                <div 
+                                    className="bg-white h-full rounded-full transition-all duration-500" 
+                                    style={{ width: `${Math.min(((currentStore.smsUsed || 0) / (currentStore.smsLimit || 1)) * 100, 100)}%` }}
+                                ></div>
+                            </div>
+                            <p className="text-xs text-zinc-400 mt-2">
+                                {t('tariff_end_date', { date: new Date(currentStore.subscriptionEndDate!).toLocaleDateString() })}
+                            </p>
+                        </div>
+                    )}
+                </div>
+                {/* Decoration */}
+                <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+            </div>
+
+            {/* Verification Bonus - Only show if NOT verified */}
+            {!currentStore?.isVerified && (
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 p-4 rounded-xl flex items-start gap-3">
+                    <Gift className="text-indigo-600 mt-1 shrink-0" size={20} />
+                    <p className="text-sm text-indigo-900 font-medium leading-relaxed">
+                        {t('verification_bonus')}
+                    </p>
+                </div>
+            )}
+
+            {/* Plans */}
+            <div className="space-y-4">
+                <h3 className="font-bold text-zinc-900 px-1">{t('tariffs_title')}</h3>
+                
+                <PlanCard 
+                    title={t('plan_free')} 
+                    price={t('price_free')} 
+                    color="text-zinc-600"
+                    features={[
+                        t('feat_all_access'),
+                        t('feat_no_sms')
+                    ]}
+                    active={!currentStore?.isVerified}
+                />
+
+                <PlanCard 
+                    title={t('plan_standard')} 
+                    price={t('price_standard')} 
+                    color="text-blue-600"
+                    features={[
+                        t('feat_all_access'),
+                        t('feat_sms_100'),
+                        t('feat_limit_3_days')
+                    ]}
+                    active={currentStore?.isVerified && (currentStore?.subscriptionPlan === 'TRIAL' || currentStore?.subscriptionPlan === 'STANDARD')}
+                    planType="STANDARD"
+                    showSubscribe={currentStore?.isVerified && currentStore?.subscriptionPlan !== 'STANDARD'}
+                />
+
+                <PlanCard 
+                    title={t('plan_pro')} 
+                    price={t('price_pro')} 
+                    color="text-purple-600"
+                    features={[
+                        t('feat_all_access'),
+                        t('feat_sms_300'),
+                        t('feat_limit_2_days')
+                    ]}
+                    active={currentStore?.subscriptionPlan === 'PRO'}
+                    planType="PRO"
+                    showSubscribe={currentStore?.isVerified && currentStore?.subscriptionPlan !== 'PRO'}
+                />
+            </div>
+
+        </div>
+    );
+};
+
+const StoresList: React.FC<{
+  stores: StoreType[];
+  currentStoreId: string;
+  onSwitchStore: (id: string) => void;
+  onCreateStore: () => void;
+  t: (key: string) => string;
+}> = ({ stores, currentStoreId, onSwitchStore, onCreateStore, t }) => {
+  return (
+    <div className="space-y-4 animate-in fade-in duration-300">
+      {stores.map(store => (
+        <div 
+          key={store.id}
+          onClick={() => onSwitchStore(store.id)}
+          className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between group ${
+            store.id === currentStoreId 
+              ? 'bg-zinc-900 text-white border-zinc-900 shadow-lg' 
+              : 'bg-white text-zinc-900 border-zinc-200 hover:border-zinc-300'
+          }`}
+        >
+          <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-bold">{store.name}</h3>
+                {store.isVerified && <Check size={14} className={store.id === currentStoreId ? 'text-green-400' : 'text-green-600'} />}
+              </div>
+              <p className={`text-xs ${store.id === currentStoreId ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                {store.isOwner ? t('my_stores') : t('collaborator')}
+              </p>
+          </div>
+          {store.id === currentStoreId && <div className="bg-white/20 p-1.5 rounded-full"><Check size={16} /></div>}
+        </div>
+      ))}
+      <button 
+        onClick={onCreateStore}
+        className="w-full py-4 border-2 border-dashed border-zinc-300 rounded-xl text-zinc-500 font-medium hover:border-zinc-400 hover:text-zinc-700 hover:bg-zinc-50 transition-all flex items-center justify-center gap-2"
+      >
+        <Plus size={20} />
+        {t('new_store')}
+      </button>
+    </div>
+  );
+};
+
+const CollaboratorsList: React.FC<{
+  collaborators: Collaborator[];
+  onAddCollaborator: () => void;
+  onRemoveCollaborator: (id: string) => void;
+  t: (key: string) => string;
+}> = ({ collaborators, onAddCollaborator, onRemoveCollaborator, t }) => {
+  return (
+    <div className="space-y-4 animate-in fade-in duration-300">
+      {collaborators.length === 0 ? (
+        <div className="text-center py-10 bg-white rounded-xl border border-zinc-200">
+          <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-3">
+             <Users size={20} className="text-zinc-300" />
+          </div>
+          <p className="text-zinc-400 text-sm">{t('no_collaborators')}</p>
+        </div>
+      ) : (
+        collaborators.map(c => (
+          <div key={c.userTelegramId} className="bg-white p-4 rounded-xl border border-zinc-200 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center overflow-hidden border border-zinc-100">
+                {c.photoUrl ? <img src={c.photoUrl} className="w-full h-full object-cover" /> : <User size={18} className="text-zinc-400" />}
+              </div>
+              <div>
+                <p className="font-bold text-sm text-zinc-900">{c.firstName}</p>
+                <p className="text-xs text-zinc-500">@{c.username || 'unknown'}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => onRemoveCollaborator(c.userTelegramId)}
+              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        ))
+      )}
+      <button 
+        onClick={onAddCollaborator}
+        className="w-full py-3.5 bg-zinc-900 text-white rounded-xl font-medium shadow-lg shadow-zinc-900/10 flex items-center justify-center gap-2 active:scale-95 transition-all"
+      >
+        <Plus size={18} />
+        {t('add_collaborator_title')}
+      </button>
+    </div>
+  );
+};
+
+const UserProfile: React.FC<{
+  currentUser: string;
+  telegramUser: TelegramUser | null;
+  phoneNumber: string | null;
+  currentStore: StoreType | undefined;
+  onViewAnalytics: () => void;
+  onOpenSettings: () => void;
+  onOpenTerms: () => void;
+  onVerifyStore: () => void;
+  onOpenStores: () => void;
+  onOpenCollaborators: () => void;
+  onOpenFaq: () => void;
+  onOpenTariffs: () => void;
+  onOpenWallet: () => void;
+  t: (key: string) => string;
+}> = ({ currentUser, telegramUser, phoneNumber, currentStore, onViewAnalytics, onOpenSettings, onOpenTerms, onVerifyStore, onOpenStores, onOpenCollaborators, onOpenFaq, onOpenTariffs, onOpenWallet, t }) => {
+  return (
+    <div className="space-y-6 pb-10">
+      {/* User Card */}
+      <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm text-center relative overflow-hidden">
+        <div className="w-20 h-20 bg-zinc-100 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden border-4 border-white shadow-lg relative z-10">
+          {telegramUser?.photo_url ? (
+            <img src={telegramUser.photo_url} className="w-full h-full object-cover" />
+          ) : (
+            <User size={32} className="text-zinc-300" />
+          )}
+        </div>
+        <h2 className="text-xl font-bold text-zinc-900 relative z-10">{currentUser}</h2>
+        <p className="text-zinc-500 text-sm mt-1 relative z-10 font-medium">{phoneNumber ? `+${phoneNumber}` : t('guest_mode')}</p>
+        
+        {/* Decor */}
+        <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-zinc-50 to-white"></div>
+      </div>
+
+      {/* Menu */}
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden divide-y divide-zinc-100">
+        <button onClick={onOpenStores} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><Store size={18} /></div>
+            <span className="font-semibold text-sm text-zinc-700">{t('my_stores')}</span>
+          </div>
+          <ChevronRight size={18} className="text-zinc-300" />
+        </button>
+        
+        {currentStore?.isOwner && (
+            <button onClick={onOpenWallet} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><Wallet size={18} /></div>
+                    <span className="font-semibold text-sm text-zinc-700">Ҳамён (Wallet)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                        {currentStore?.walletBalance ? formatCurrency(currentStore.walletBalance) : '0 TJS'}
+                    </span>
+                    <ChevronRight size={18} className="text-zinc-300" />
+                </div>
+            </button>
+        )}
+
+        {currentStore?.isOwner && (
+          <button onClick={onOpenCollaborators} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><Users size={18} /></div>
+              <span className="font-semibold text-sm text-zinc-700">{t('collaborators')}</span>
+            </div>
+            <ChevronRight size={18} className="text-zinc-300" />
+          </button>
+        )}
+
+        <button onClick={onViewAnalytics} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-green-50 text-green-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><BarChart3 size={18} /></div>
+            <span className="font-semibold text-sm text-zinc-700">{t('analytics_title')}</span>
+          </div>
+          <ChevronRight size={18} className="text-zinc-300" />
+        </button>
+
+        {currentStore?.isOwner && (
+          <button onClick={onVerifyStore} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-yellow-50 text-yellow-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><ShieldAlert size={18} /></div>
+              <span className="font-semibold text-sm text-zinc-700">{t('verify_store')}</span>
+            </div>
+            <div className="flex items-center gap-2">
+                {currentStore?.isVerified ? (
+                    <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase">{t('verified')}</span>
+                ) : (
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase">{t('not_verified')}</span>
+                )}
+                <ChevronRight size={18} className="text-zinc-300" />
+            </div>
+          </button>
+        )}
+        
+        {currentStore?.isOwner && (
+             <button onClick={onOpenTariffs} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><Zap size={18} /></div>
+                    <span className="font-semibold text-sm text-zinc-700">{t('tariffs_title')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase">
+                        {currentStore?.subscriptionPlan || 'FREE'}
+                    </span>
+                    <ChevronRight size={18} className="text-zinc-300" />
+                </div>
+            </button>
+        )}
+      </div>
+      
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden divide-y divide-zinc-100">
+        <button onClick={onOpenSettings} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-zinc-50 text-zinc-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><Settings size={18} /></div>
+            <span className="font-semibold text-sm text-zinc-700">{t('settings')}</span>
+          </div>
+          <ChevronRight size={18} className="text-zinc-300" />
+        </button>
+        <button onClick={onOpenFaq} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-zinc-50 text-zinc-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><MessageCircleQuestion size={18} /></div>
+            <span className="font-semibold text-sm text-zinc-700">{t('faq')}</span>
+          </div>
+          <ChevronRight size={18} className="text-zinc-300" />
+        </button>
+        <button onClick={onOpenTerms} className="w-full p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-zinc-50 text-zinc-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"><FileText size={18} /></div>
+            <span className="font-semibold text-sm text-zinc-700">{t('terms_of_service')}</span>
+          </div>
+          <ChevronRight size={18} className="text-zinc-300" />
+        </button>
+      </div>
+
+      <p className="text-center text-xs text-zinc-400 pt-4">Version 2.0.0 (Enterprise)</p>
+    </div>
+  );
+};
+
+const AnalyticsDashboard: React.FC<{
+  debtors: Debtor[];
+  showCreator: boolean;
+  t: (key: string) => string;
+}> = ({ debtors, showCreator, t }) => {
+    const totalDebts = debtors.reduce((sum, d) => sum + (d.balance > 0 ? d.balance : 0), 0);
+    
+    return (
+        <div className="space-y-6 pb-10">
+            <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm relative overflow-hidden">
+                    <p className="text-xs text-zinc-500 uppercase font-bold mb-1 relative z-10">{t('total_debts')}</p>
+                    <p className="text-xl font-bold text-red-600 relative z-10">{formatCurrency(totalDebts)}</p>
+                    <div className="absolute right-0 bottom-0 w-12 h-12 bg-red-50 rounded-tl-xl z-0"></div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-zinc-200 shadow-sm relative overflow-hidden">
+                    <p className="text-xs text-zinc-500 uppercase font-bold mb-1 relative z-10">{t('results') || 'Active Debtors'}</p>
+                    <p className="text-xl font-bold text-zinc-900 relative z-10">{debtors.length}</p>
+                    <div className="absolute right-0 bottom-0 w-12 h-12 bg-zinc-50 rounded-tl-xl z-0"></div>
+                </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm">
+                <div className="flex items-center gap-2 mb-4 border-b border-zinc-50 pb-2">
+                    <PieChart size={20} className="text-zinc-400" />
+                    <h3 className="font-bold text-zinc-900 text-sm">{t('detailed_list')}</h3>
+                </div>
+                <div className="space-y-3">
+                    {debtors
+                        .filter(d => d.balance > 0)
+                        .sort((a, b) => b.balance - a.balance)
+                        .slice(0, 5)
+                        .map((d, i) => (
+                        <div key={d.id} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-3">
+                                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                                    i === 0 ? 'bg-yellow-100 text-yellow-700' :
+                                    i === 1 ? 'bg-zinc-100 text-zinc-700' :
+                                    i === 2 ? 'bg-orange-100 text-orange-700' :
+                                    'bg-zinc-50 text-zinc-500'
+                                }`}>{i + 1}</span>
+                                <div className="flex flex-col">
+                                    <span className="font-medium text-zinc-700">{d.name}</span>
+                                    {showCreator && <span className="text-[10px] text-zinc-400">{d.createdBy}</span>}
+                                </div>
+                            </div>
+                            <span className="font-bold text-zinc-900">{formatCurrency(d.balance)}</span>
+                        </div>
+                    ))}
+                    {debtors.filter(d => d.balance > 0).length === 0 && (
+                        <p className="text-center text-zinc-400 text-sm py-4">{t('no_transactions')}</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 function App() {
   const [view, setView] = useState<ViewState>('DASHBOARD');
@@ -775,6 +1011,7 @@ function App() {
   // Phone Number Logic
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [isConnectPhoneOpen, setIsConnectPhoneOpen] = useState(false);
+  const [forcePhoneConnect, setForcePhoneConnect] = useState(false);
   
   // Language State
   const [language, setLanguage] = useState<Language>('tg');
@@ -783,7 +1020,7 @@ function App() {
   const [stores, setStores] = useState<StoreType[]>([]);
   const [currentStoreId, setCurrentStoreIdState] = useState<string>('');
   
-  // Collaborators List (Lifted up from UserProfile)
+  // Collaborators List
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   
   // Selected Transaction for Detail Modal
@@ -797,7 +1034,6 @@ function App() {
   // Computed Values
   const currentStore = useMemo(() => stores.find(s => s.id === currentStoreId), [stores, currentStoreId]);
 
-  // Logic to show/hide "Created By" info
   const showCreatorInfo = useMemo(() => {
     if (!currentStore) return false;
     if (!currentStore.isOwner) return true; // Shared store
@@ -825,6 +1061,14 @@ function App() {
   const syncUserData = async (user: TelegramUser) => {
     const syncResult = await syncUser(user);
     
+    if (syncResult.requirePhone) {
+        setForcePhoneConnect(true);
+        setLoading(false);
+        return null;
+    } else {
+        setForcePhoneConnect(false);
+    }
+    
     if (syncResult.language) {
         setLanguage(syncResult.language);
     }
@@ -839,74 +1083,36 @@ function App() {
     return syncResult.lastActiveStoreId;
   };
 
-  // Initialize Telegram WebApp OR Check Local Storage
+  // Initialize Telegram WebApp
   useEffect(() => {
     const startApp = async () => {
         let lastStoreId: string | null = null;
-        let preferredLang: Language = 'tg';
 
-        // 1. Check if running inside Telegram
         if (window.Telegram?.WebApp?.initData) {
           const tg = window.Telegram.WebApp;
           setIsTelegramSession(true);
-          setIsAuthenticated(true); // Telegram is trusted
+          setIsAuthenticated(true);
 
           tg.ready();
           tg.expand();
           try { tg.setHeaderColor('#ffffff'); } catch (e) {}
 
-          // Get User Data from Telegram
           if (tg.initDataUnsafe?.user) {
             const user = tg.initDataUnsafe.user;
             setTelegramUser(user);
             setTelegramId(user.id.toString());
-            // SYNC USER TO DB & GET PREFERENCES
             lastStoreId = await syncUserData(user);
             
             const displayName = user.first_name + (user.last_name ? ` ${user.last_name[0]}.` : '');
             setCurrentUser(displayName);
           }
         } 
-        // 2. If not Telegram, check Local Storage for Web Session
         else {
-             setIsTelegramSession(false);
-             const storedSession = localStorage.getItem('user_session');
-             
-             if (storedSession) {
-                 try {
-                     const user = JSON.parse(storedSession);
-                     if (user && user.id) {
-                         setIsAuthenticated(true);
-                         setTelegramId(user.id.toString());
-                         setCurrentUser(user.first_name);
-                         setTelegramUser({ 
-                             id: parseInt(user.id) || 0, 
-                             first_name: user.first_name, 
-                             photo_url: user.photo_url 
-                         } as TelegramUser);
-                         
-                         // We treat this user like a Telegram user for DB syncing purposes
-                         // Ideally we'd have a separate `syncWebUser` but `syncUser` handles upsert
-                         lastStoreId = await syncUserData({ 
-                             id: user.id, 
-                             first_name: user.first_name,
-                             photo_url: user.photo_url 
-                         } as TelegramUser);
-                     } else {
-                         setIsAuthenticated(false);
-                     }
-                 } catch (e) {
-                     console.error("Invalid session", e);
-                     localStorage.removeItem('user_session');
-                     setIsAuthenticated(false);
-                 }
-             } else {
-                 setIsAuthenticated(false);
-             }
+             window.location.href = 'https://daftarapp.tj/';
+             return;
         }
 
-        // Initial Load Data if Authenticated
-        if (window.Telegram?.WebApp?.initData || localStorage.getItem('user_session')) {
+        if ((window.Telegram?.WebApp?.initData) && lastStoreId !== null) { 
              await initApp(lastStoreId);
         } else {
             setLoading(false);
@@ -916,17 +1122,19 @@ function App() {
     startApp();
   }, []);
 
-  // Handle Telegram Back Button Integration
+  // Handle Telegram Back Button
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (!tg) return;
 
     const handleBack = () => {
-        if (view === 'ANALYTICS') setView('PROFILE');
-        else if (view === 'SETTINGS') setView('PROFILE');
-        else if (view === 'VERIFICATION') setView('PROFILE');
-        else if (view === 'PROFILE') setView('DASHBOARD');
-        else setView('DASHBOARD'); // For DEBTOR_DETAIL
+        if (view !== 'DASHBOARD' && view !== 'PROFILE') {
+            setView('PROFILE');
+        } else if (view === 'PROFILE') {
+            setView('DASHBOARD');
+        } else {
+            // Already at dashboard
+        }
     };
 
     if (view !== 'DASHBOARD') {
@@ -943,19 +1151,15 @@ function App() {
 
   const initApp = async (preferredStoreId: string | null) => {
       setLoading(true);
-      
-      // 1. Fetch Stores first
       const loadedStores = await getStores();
       setStores(loadedStores);
 
       if (loadedStores.length > 0) {
-          // If preference exists and is valid, use it. Otherwise, use first store.
           let targetStoreId = loadedStores[0].id;
           if (preferredStoreId && loadedStores.some(s => s.id === preferredStoreId)) {
               targetStoreId = preferredStoreId;
           }
-
-          handleSwitchStore(targetStoreId, false); // false = don't save again, we just loaded it
+          handleSwitchStore(targetStoreId, false);
       } else {
           setLoading(false);
       }
@@ -963,16 +1167,13 @@ function App() {
 
   const handleSwitchStore = async (storeId: string, shouldSave = true) => {
       setCurrentStoreIdState(storeId);
-      setStoreId(storeId); // Update service
+      setStoreId(storeId);
       
       if (shouldSave) {
           saveLastActiveStore(storeId);
       }
       
-      // Find the store object to check ownership
       const selectedStore = stores.find(s => s.id === storeId);
-      
-      // If owner, fetch collaborators to update state for "showCreatorInfo" logic
       if (selectedStore?.isOwner) {
           try {
              const collabs = await getCollaborators(storeId);
@@ -985,7 +1186,6 @@ function App() {
           setCollaborators([]); 
       }
 
-      // Fetch data for this store
       setLoading(true);
       const data = await getDebtors();
       setDebtors(data);
@@ -996,14 +1196,13 @@ function App() {
       const newStore = await createStore(name);
       if (newStore) {
           setStores(prev => [...prev, newStore]);
-          handleSwitchStore(newStore.id); // Switch to new store
-          setView('PROFILE'); // Stay on profile
+          handleSwitchStore(newStore.id);
+          setView('STORES'); 
       }
   };
 
   const handleAddCollaborator = async (userId: string, permissions: CollaboratorPermissions) => {
     await addCollaborator(currentStoreId, userId, permissions);
-    // Refresh collaborator list
     const collabs = await getCollaborators(currentStoreId);
     setCollaborators(collabs);
   };
@@ -1015,8 +1214,6 @@ function App() {
 
   const handleVerificationSubmit = async (docType: string, imageBase64: string, customStoreName: string) => {
      await submitVerificationRequest(currentStoreId, docType, imageBase64, customStoreName);
-     
-     // Refresh stores to update verification status (PENDING)
      const updatedStores = await getStores();
      setStores(updatedStores);
   };
@@ -1028,34 +1225,6 @@ function App() {
     setLoading(false);
   };
 
-  // Web Login Success Handler
-  const handleWebLoginSuccess = async (user: any) => {
-      localStorage.setItem('user_session', JSON.stringify(user));
-      setTelegramId(user.id.toString());
-      setTelegramUser({ 
-          id: parseInt(user.id) || 0, 
-          first_name: user.first_name, 
-          photo_url: user.photo_url 
-      } as TelegramUser);
-      setCurrentUser(user.first_name);
-      setIsAuthenticated(true);
-      
-      await initApp(null);
-  };
-
-  const handleSwitchUser = () => {
-    if (isTelegramSession) return; // Cannot logout in Telegram
-    
-    // Web Logout
-    localStorage.removeItem('user_session');
-    setIsAuthenticated(false);
-    setTelegramUser(null);
-    setCurrentUser('');
-    setStores([]);
-    setDebtors([]);
-  };
-
-  // Computed Values
   const currentStoreName = currentStore?.name;
   const totalReceivable = useMemo(() => debtors.reduce((sum, d) => sum + (d.balance > 0 ? Number(d.balance) : 0), 0), [debtors]);
 
@@ -1071,7 +1240,6 @@ function App() {
     debtors.find(d => d.id === selectedDebtorId), 
   [debtors, selectedDebtorId]);
 
-  // Handlers
   const handleLanguageChange = async (lang: Language) => {
     setLanguage(lang);
     await saveLanguage(lang);
@@ -1079,12 +1247,17 @@ function App() {
 
   const handleCheckPhoneAgain = async () => {
       if (telegramUser) {
-          await syncUserData(telegramUser);
+          const storeId = await syncUserData(telegramUser);
+          if (storeId !== null) {
+              setLoading(true);
+              await initApp(storeId);
+          } else {
+              alert("Лутфан аввал рақамро тасдиқ кунед!");
+          }
       }
   };
 
   const handleAddDebtor = async (name: string, phone: string) => {
-    // Generate Creator Name: Use full Telegram name + username if available
     let creatorName = currentUser;
     if (telegramUser) {
         const fullName = [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ');
@@ -1105,7 +1278,7 @@ function App() {
       createdBy: creatorName
     };
     await saveDebtor(newDebtor);
-    await fetchData(); // Refresh list
+    await fetchData(); 
   };
 
   const handleEditDebtor = async (name: string, phone: string) => {
@@ -1117,7 +1290,6 @@ function App() {
   const handleAddTransaction = async (amount: number, type: TransactionType, description: string) => {
     if (!selectedDebtorId) return;
 
-    // Permissions check UI side (Backend also checks)
     if (currentStore && !currentStore.isOwner) {
         if (type === TransactionType.DEBT && !currentStore.permissions?.canAddDebt) {
             alert('Шумо ҳуқуқи иловаи қарзро надоред.');
@@ -1129,7 +1301,6 @@ function App() {
         }
     }
 
-    // Generate Creator Name: Use full Telegram name + username if available
     let creatorName = currentUser;
     if (telegramUser) {
         const fullName = [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ');
@@ -1150,7 +1321,7 @@ function App() {
     };
 
     await updateDebtorTransaction(selectedDebtorId, newTransaction);
-    await fetchData(); // Refresh list
+    await fetchData(); 
   };
 
   const handleDeleteDebtor = async () => {
@@ -1170,17 +1341,13 @@ function App() {
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {
-    // Note: Transaction deletion permissions are implicit based on Debt/Payment permissions usually, 
-    // or strictly reserved for admins. For now, we apply general logic.
     if (currentStore && !currentStore.isOwner && !currentStore.permissions?.canDeleteDebtor) { 
-        // Using delete debtor permission as "high level" delete permission
         alert('Шумо ҳуқуқи нест кардани амалиётҳоро надоред.');
         return;
     }
-    // Logic moved to Modal for explicit confirmation button there, but kept here for direct calls if any.
     await deleteTransaction(transactionId);
     await fetchData();
-    setSelectedTransaction(null); // Close modal if open
+    setSelectedTransaction(null);
   };
 
   const navigateToDetail = (id: string) => {
@@ -1207,16 +1374,25 @@ function App() {
       }
   };
 
-  // IF NOT AUTHENTICATED -> SHOW LOGIN SCREEN
   if (!isAuthenticated) {
-      if (loading) {
-          return (
-            <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="animate-spin text-zinc-400" size={32} />
-            </div>
-          );
-      }
-      return <LoginView onLoginSuccess={handleWebLoginSuccess} />;
+      return (
+        <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="animate-spin text-zinc-400" size={32} />
+        </div>
+      );
+  }
+
+  if (forcePhoneConnect) {
+      return (
+          <div className="min-h-screen bg-zinc-50">
+              <ConnectPhoneModal 
+                  isOpen={true} 
+                  botUsername="daftartjbot" 
+                  onCheckAgain={handleCheckPhoneAgain}
+                  t={t}
+              />
+          </div>
+      );
   }
 
   if (loading && view === 'DASHBOARD' && debtors.length === 0) {
@@ -1245,14 +1421,11 @@ function App() {
       {/* DASHBOARD VIEW */}
       {view === 'DASHBOARD' && (
         <main className="max-w-md mx-auto p-4 space-y-6 animate-in fade-in duration-300">
-          
-          {/* Stats Card */}
           <section className="bg-white rounded-2xl p-6 shadow-sm border border-zinc-200/60">
             <p className="text-zinc-500 text-xs font-medium uppercase tracking-wide mb-2">{t('total_amount')}</p>
             <h2 className="text-4xl font-bold text-zinc-900 tracking-tight">{formatCurrency(totalReceivable)}</h2>
           </section>
 
-          {/* Search & List */}
           <section className="space-y-4">
             <div className="relative group">
               <Search className="absolute left-3 top-3.5 text-zinc-400 group-focus-within:text-zinc-900 transition-colors" size={18} />
@@ -1305,47 +1478,89 @@ function App() {
         </main>
       )}
 
-      {/* USER PROFILE VIEW (Stores & Collaborators) */}
+      {/* USER PROFILE VIEW */}
       {view === 'PROFILE' && (
         <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
            <UserProfile 
               currentUser={currentUser}
               telegramUser={telegramUser} 
               phoneNumber={phoneNumber}
-              onSwitchUser={handleSwitchUser} 
-              stores={stores}
-              currentStoreId={currentStoreId}
-              onSwitchStore={handleSwitchStore}
-              onCreateStore={() => setIsAddStoreOpen(true)}
               currentStore={currentStore}
-              onAddCollaborator={() => setIsAddCollabOpen(true)}
               onViewAnalytics={() => setView('ANALYTICS')}
               onOpenSettings={() => setView('SETTINGS')}
-              collaborators={collaborators}
-              onRemoveCollaborator={handleRemoveCollaborator}
+              onOpenTerms={() => setView('TERMS')}
               onVerifyStore={() => setView('VERIFICATION')}
+              onOpenStores={() => setView('STORES')}
+              onOpenCollaborators={() => setView('COLLABORATORS')}
+              onOpenFaq={() => setView('FAQ')}
+              onOpenTariffs={() => setView('TARIFFS')}
+              onOpenWallet={() => setView('WALLET')}
               t={t}
            />
         </main>
       )}
 
-      {/* SETTINGS VIEW */}
+      {view === 'STORES' && (
+          <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
+              <StoresList 
+                stores={stores}
+                currentStoreId={currentStoreId}
+                onSwitchStore={handleSwitchStore}
+                onCreateStore={() => setIsAddStoreOpen(true)}
+                t={t}
+              />
+          </main>
+      )}
+
+      {view === 'COLLABORATORS' && (
+          <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
+              <CollaboratorsList 
+                collaborators={collaborators}
+                onAddCollaborator={() => setIsAddCollabOpen(true)}
+                onRemoveCollaborator={handleRemoveCollaborator}
+                t={t}
+              />
+          </main>
+      )}
+
       {view === 'SETTINGS' && (
          <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
             <SettingsView language={language} onLanguageChange={handleLanguageChange} t={t} />
          </main>
       )}
+      
+      {view === 'TERMS' && (
+          <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
+              <TermsView />
+          </main>
+      )}
 
-      {/* ANALYTICS DASHBOARD VIEW */}
+      {view === 'FAQ' && (
+          <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
+              <FaqView t={t} />
+          </main>
+      )}
+
+      {view === 'TARIFFS' && (
+          <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
+              <TariffView currentStore={currentStore} t={t} />
+          </main>
+      )}
+
+      {view === 'WALLET' && (
+          <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
+              <WalletView t={t} />
+          </main>
+      )}
+
       {view === 'ANALYTICS' && (
           <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
               <AnalyticsDashboard debtors={debtors} showCreator={showCreatorInfo} t={t} />
           </main>
       )}
 
-      {/* VERIFICATION VIEW */}
       {view === 'VERIFICATION' && (
-         <main className="max-w-md mx-auto p-4 animate-in slide-in-from-right duration-300">
+         <main className="max-w-md mx-auto p-0 animate-in slide-in-from-right duration-300">
              <VerificationView 
                 onSubmit={handleVerificationSubmit}
                 initialStoreName={currentStoreName || ''}
@@ -1356,11 +1571,8 @@ function App() {
          </main>
       )}
 
-      {/* DETAIL VIEW */}
       {view === 'DEBTOR_DETAIL' && selectedDebtor && (
-        <main className="max-w-md mx-auto p-4 space-y-6 animate-in slide-in-from-right duration-300">
-          
-          {/* Profile Card */}
+        <main className="max-w-md mx-auto p-4 space-y-6 animate-in slide-in-from-right duration-300 pb-24">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-zinc-200 text-center relative overflow-hidden">
             <div className="w-20 h-20 bg-zinc-100 rounded-full mx-auto flex items-center justify-center mb-4 text-zinc-300">
               <User size={32} />
@@ -1391,7 +1603,6 @@ function App() {
                </button>
             </div>
 
-            {/* CREATED BY INFO */}
             {showCreatorInfo && (
                 <div className="mt-6 pt-4 border-t border-zinc-50 flex items-center justify-center gap-2 text-zinc-400">
                     <span className="text-[10px] uppercase tracking-wider">{t('created_by')}</span>
@@ -1403,7 +1614,6 @@ function App() {
             )}
           </div>
 
-          {/* Actions (Two large buttons) */}
           <div className="grid grid-cols-2 gap-4">
              <button 
                 onClick={() => {
@@ -1428,7 +1638,6 @@ function App() {
              </button>
           </div>
 
-          {/* History */}
           <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
             <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2 bg-zinc-50/50">
               <Calendar size={16} className="text-zinc-400" />
@@ -1475,16 +1684,14 @@ function App() {
               </ul>
             )}
           </div>
-
+          
         </main>
       )}
 
-      {/* Reminder / SMS Modal */}
       {isReminderOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setIsReminderOpen(false)}>
             <div className="bg-white rounded-xl p-6 max-w-sm text-center animate-in fade-in zoom-in duration-200 shadow-xl border border-zinc-100" onClick={(e) => e.stopPropagation()}>
                  {currentStore?.isVerified ? (
-                     // State 1: Verified (Allow SMS)
                      <>
                         <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
                             <Send size={24} />
@@ -1506,7 +1713,6 @@ function App() {
                         </div>
                      </>
                  ) : (
-                     // State 2: Not Verified (Prompt)
                      <>
                         <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-600">
                             <ShieldAlert size={24} />
@@ -1573,7 +1779,7 @@ function App() {
       
       <ConnectPhoneModal 
           isOpen={isConnectPhoneOpen}
-          botUsername="daftartjbot" // Make sure this matches your bot's username
+          botUsername="daftartjbot"
           onCheckAgain={handleCheckPhoneAgain}
           t={t}
       />
